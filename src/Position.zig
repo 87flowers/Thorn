@@ -1,4 +1,7 @@
-attacks: [2][16]SquareSet,
+attack_set: [2][16]SquareSet,
+danger: SquareSet,
+pinned: SquareSet,
+checkers: SquareSet,
 
 piece_mailbox: [64]Piece,
 id_mailbox: [64]PieceId,
@@ -16,6 +19,14 @@ ply: u16,
 
 castling: Castling,
 
+pub fn colorSet(self: *const Position, color: Color) SquareSet {
+    return self.color_set[color.toIndex()];
+}
+
+pub fn ptypeSet(self: *const Position, ptype: PieceType) SquareSet {
+    return self.ptype_set[ptype.toIndex()];
+}
+
 pub fn sideToMove(self: *const Position) Color {
     return @enumFromInt(self.ply % 2);
 }
@@ -26,6 +37,10 @@ pub fn turnClock(self: *const Position) u16 {
 
 pub fn kingSq(self: *const Position, color: Color) Square {
     return self.piece_list_sq[color.toIndex()][0];
+}
+
+pub fn occupiedSet(self: *const Position) SquareSet {
+    return self.color_set[0].bitOr(self.color_set[1]);
 }
 
 // Caller has ownership of string
@@ -44,7 +59,10 @@ pub fn parse(str: []const u8) !Position {
 // Caller has ownership of all strings
 pub fn parseParts(board_str: []const u8, color_str: []const u8, castle_str: []const u8, enpassant_str: []const u8, fifty_move_clock_str: []const u8, turns_str: []const u8) !Position {
     var position: Position = .{
-        .attacks = @splat(@splat(SquareSet.empty)),
+        .attack_set = @splat(@splat(SquareSet.empty)),
+        .danger = .empty,
+        .pinned = .empty,
+        .checkers = .empty,
         .piece_mailbox = @splat(Piece.none),
         .id_mailbox = @splat(PieceId.none),
         .color_set = @splat(SquareSet.empty),
@@ -170,6 +188,9 @@ pub fn parseParts(board_str: []const u8, color_str: []const u8, castle_str: []co
     if (turns == 0 or turns > 10000) return ParseError.OutOfRange;
     position.ply = (turns - 1) * 2 + @as(u16, @intCast(stm.toIndex()));
 
+    position.recalculateAttacks();
+    position.recalculateDanger();
+
     return position;
 }
 
@@ -226,6 +247,50 @@ pub fn format(self: *const Position, writer: *std.Io.Writer) !void {
     try if (self.enpassant.isNone()) writer.print(" -", .{}) else writer.print(" {f}", .{self.enpassant});
     try writer.print(" {}", .{self.fifty_move_clock});
     try writer.print(" {}", .{self.turnClock()});
+}
+
+fn recalculateAttacks(self: *Position) void {
+    const occ = self.occupiedSet();
+    for ([_]Color{ .white, .black }) |color| {
+        for (0..16) |id| {
+            const ptype = self.piece_list_ptype[color.toIndex()][id];
+            const sq = self.piece_list_sq[color.toIndex()][id];
+            self.attack_set[color.toIndex()][id] = attacks.ptype(ptype, occ, sq, color);
+        }
+    }
+}
+
+fn recalculateDanger(self: *Position) void {
+    const stm = self.sideToMove();
+
+    const king = self.kingSq(stm);
+    const friend = self.colorSet(stm);
+    const enemy = self.colorSet(stm.invert());
+    const diagonal = enemy.bitAnd(self.ptypeSet(.b).bitOr(self.ptypeSet(.q))).bitAnd(attacks.bishop(enemy, king));
+    const orthogonal = enemy.bitAnd(self.ptypeSet(.r).bitOr(self.ptypeSet(.q))).bitAnd(attacks.rook(enemy, king));
+
+    self.pinned = .empty;
+    self.checkers = .empty;
+
+    var potential_pinners = diagonal.bitOr(orthogonal).iter();
+    while (potential_pinners.next()) |sq| {
+        const blockers = rays.between(king, sq).bitAnd(friend);
+        switch (blockers.popcount()) {
+            0 => self.checkers.write(sq, true),
+            1 => self.pinned = self.pinned.bitOr(blockers),
+            else => {},
+        }
+    }
+
+    // TODO: Vectorize
+    self.danger = .empty;
+    for (0..16) |i| {
+        self.danger = self.danger.bitOr(self.attack_set[stm.invert().toIndex()][i]);
+    }
+    var checkers_iter = self.checkers.iter();
+    while (checkers_iter.next()) |checker| {
+        self.danger = self.danger.bitOr(rays.past(checker, king));
+    }
 }
 
 pub const Castling = struct {
@@ -323,6 +388,8 @@ const Position = @This();
 const std = @import("std");
 const assert = std.debug.assert;
 const thorn = @import("root.zig");
+const attacks = thorn.attacks;
+const rays = thorn.rays;
 const Color = thorn.Color;
 const ParseError = thorn.ParseError;
 const Piece = thorn.Piece;

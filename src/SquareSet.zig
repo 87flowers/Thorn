@@ -6,20 +6,20 @@ pub fn make(raw: u64) SquareSet {
     return SquareSet{ .raw = raw };
 }
 
-pub fn fileMask(file: i8) SquareSet {
+pub fn fileMask(file: u8) SquareSet {
     assert(file >= 0 and file <= 7);
-    return make(0x0101010101010101 << file);
+    return make(@as(u64, 0x0101010101010101) << @intCast(file));
 }
 
-pub fn rankMask(rank: i8) SquareSet {
+pub fn rankMask(rank: u8) SquareSet {
     assert(rank >= 0 and rank <= 7);
-    return make(0xFF << (rank * 8));
+    return make(@as(u64, 0xFF) << @intCast(rank * 8));
 }
 
 pub fn rayMask(start: Square, dir: Dir) SquareSet {
     assert(start.isSome());
     var bb = start.toSet();
-    var result = SquareSet{};
+    var result = SquareSet.empty;
     while (!bb.isEmpty()) {
         bb = bb.shift(dir);
         result = result.bitOr(bb);
@@ -32,7 +32,8 @@ pub fn isEmpty(self: SquareSet) bool {
 }
 
 pub fn lsb(self: SquareSet) Square {
-    return Square.make(@ctz(self.raw));
+    assert(!self.isEmpty());
+    return Square.fromIndex(@ctz(self.raw));
 }
 
 pub fn popLsb(self: *SquareSet) void {
@@ -57,6 +58,10 @@ pub fn write(self: *SquareSet, sq: Square, value: bool) void {
     }
 }
 
+pub fn bitAnd(self: SquareSet, other: SquareSet) SquareSet {
+    return SquareSet.make(self.raw & other.raw);
+}
+
 pub fn bitOr(self: SquareSet, other: SquareSet) SquareSet {
     return SquareSet.make(self.raw | other.raw);
 }
@@ -78,6 +83,19 @@ pub fn shift(self: SquareSet, dir: Dir) SquareSet {
         .w => SquareSet.make(self.raw >> 1),
         .nw => SquareSet.make((self.raw & ~file_a.raw) << 7),
     };
+}
+
+pub fn iter(self: SquareSet) struct {
+    remaining: SquareSet,
+
+    pub fn next(i: *@This()) ?Square {
+        if (i.remaining.isEmpty()) return null;
+        const result = i.remaining.lsb();
+        i.remaining.popLsb();
+        return result;
+    }
+} {
+    return .{ .remaining = self };
 }
 
 const SquareSet = @This();

@@ -1,4 +1,5 @@
 pub const attacks = @import("attacks.zig");
+pub const rays = @import("rays.zig");
 pub const Move = @import("Move.zig");
 pub const MoveList = @import("MoveList.zig");
 pub const PieceSet = @import("PieceSet.zig");
@@ -25,7 +26,7 @@ pub const Color = enum(u1) {
     black = 1,
 
     pub fn invert(self: Color) Color {
-        return @enumFromInt(!@intFromEnum(self));
+        return @enumFromInt(@intFromEnum(self) ^ 1);
     }
 
     pub fn homeRank(self: Color) u8 {
@@ -207,6 +208,11 @@ pub const Square = enum(u8) {
     none = 0x80,
     // zig fmt: on
 
+    pub fn fromIndex(i: u8) Square {
+        assert(i < 64);
+        return @enumFromInt(i);
+    }
+
     pub fn fromFileAndRank(f: u8, r: u8) Square {
         assert(f >= 0 and f <= 7);
         assert(r >= 0 and r <= 7);
@@ -242,13 +248,10 @@ pub const Square = enum(u8) {
 
     // Caller has ownership of string
     pub fn parse(str: []const u8) ParseError!Square {
-        if (str.len != 2)
-            return ParseError.InvalidLength;
-        if (str[0] < 'a' or str[0] > 'h')
-            return ParseError.InvalidChar;
+        if (str.len != 2) return ParseError.InvalidLength;
+        if (str[0] < 'a' or str[0] > 'h') return ParseError.InvalidChar;
+        if (str[1] < '1' or str[1] > '8') return ParseError.InvalidChar;
         const f = str[0] - 'a';
-        if (str[1] < '1' or str[1] > '8')
-            return ParseError.InvalidChar;
         const r = str[1] - '1';
         return fromFileAndRank(f, r);
     }
