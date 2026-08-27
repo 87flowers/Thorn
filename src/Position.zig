@@ -29,6 +29,10 @@ pub fn ptypeSet(self: *const Position, ptype: PieceType) SquareSet {
     return self.ptype_set[ptype.toIndex()];
 }
 
+pub fn coloredPtypeSet(self: *const Position, color: Color, ptype: PieceType) SquareSet {
+    return self.color_set[color.toIndex()].bitAnd(self.ptype_set[ptype.toIndex()]);
+}
+
 pub fn sideToMove(self: *const Position) Color {
     return @enumFromInt(self.ply % 2);
 }
@@ -43,6 +47,76 @@ pub fn kingSq(self: *const Position, color: Color) Square {
 
 pub fn occupiedSet(self: *const Position) SquareSet {
     return self.color_set[0].bitOr(self.color_set[1]);
+}
+
+// Naming convention:
+// *At: takes a Square
+// *Is/*Are: takes a (Color, PieceId)
+// what*: returns Piece/PieceType
+// which*: returns PieceId/PieceSet
+
+pub fn whatAt(self: *const Position, sq: Square) Piece {
+    return self.piece_mailbox[sq.toIndex()];
+}
+
+pub fn ptypeAt(self: *const Position, sq: Square) PieceType {
+    return self.whatAt(sq).ptype();
+}
+
+pub fn colorAt(self: *const Position, sq: Square) Color {
+    return self.whatAt(sq).color();
+}
+
+pub fn whichAt(self: *const Position, sq: Square) PieceId {
+    return self.piece_id[sq.toIndex()];
+}
+
+pub fn whatIs(self: *const Position, color: Color, id: PieceId) PieceType {
+    return self.piece_list_ptype[color.toIndex()][id.toIndex()];
+}
+
+pub fn whereIs(self: *const Position, color: Color, id: PieceId) Square {
+    return self.piece_list_sq[color.toIndex()][id.toIndex()];
+}
+
+pub fn whichAre(self: *const Position, color: Color, ptype: PieceType) PieceSet {
+    const v: @Vector(16, u8) = @bitCast(self.piece_list_ptype[color.toIndex()]);
+    return PieceSet.make(@bitCast(v == ptype.splat(16)));
+}
+
+pub fn whichMaskedAttackTo(self: *const Position, dst: SquareSet) PieceSet {
+    const v: @Vector(16, u64) = @bitCast(self.masked_attack_set);
+    const bb: @Vector(16, u64) = @splat(dst.raw);
+    const zero: @Vector(16, u64) = @splat(0);
+    return PieceSet.make(@bitCast((v & bb) != zero));
+}
+
+pub fn isCastleLegal(self: *const Position, comptime side: Castling.Side) bool {
+    const stm = self.sideToMove();
+    switch (stm) {
+        .white => {
+            const rook = self.castling.read(.white, side);
+            return rook.isSome() and self.isCastleLegalHelper(rook, 3, 2);
+        },
+        .black => {
+            const rook = self.castling.read(.black, side);
+            return rook.isSome() and self.isCastleLegalHelper(rook, 5, 6);
+        },
+    }
+}
+
+fn isCastleLegalHelper(self: *const Position, rook: Square, rook_dst: u8, king_dst: u8) bool {
+    const stm = self.sideToMove();
+    const king = self.kingSq(stm);
+
+    const rook_ray = SquareSet.rayInclusive(rook, Square.fromFileAndRank(rook_dst, king.rank()));
+    const king_ray = SquareSet.rayInclusive(king, Square.fromFileAndRank(king_dst, king.rank()));
+
+    const empty = self.occupiedSet().bitNot();
+    const danger = self.danger;
+    const clear = empty.bitOr(rook.toSet()).bitOr(king.toSet());
+
+    return rook_ray.bitAndNot(clear).isEmpty() and king_ray.bitAndNot(clear).isEmpty() and king_ray.bitAnd(danger).isEmpty() and !self.pinned.read(rook);
 }
 
 // Caller has ownership of string
@@ -61,18 +135,18 @@ pub fn parse(str: []const u8) !Position {
 // Caller has ownership of all strings
 pub fn parseParts(board_str: []const u8, color_str: []const u8, castle_str: []const u8, enpassant_str: []const u8, fifty_move_clock_str: []const u8, turns_str: []const u8) !Position {
     var position: Position = .{
-        .attack_set = @splat(@splat(SquareSet.empty)),
+        .attack_set = @splat(@splat(.empty)),
         .masked_attack_set = @splat(.empty),
         .danger = .empty,
         .pinned = .empty,
         .checkers = .empty,
-        .piece_mailbox = @splat(Piece.none),
-        .id_mailbox = @splat(PieceId.none),
-        .color_set = @splat(SquareSet.empty),
-        .ptype_set = @splat(SquareSet.empty),
-        .piece_list_sq = @splat(@splat(Square.none)),
-        .piece_list_ptype = @splat(@splat(PieceType.none)),
-        .enpassant = Square.none,
+        .piece_mailbox = @splat(.none),
+        .id_mailbox = @splat(.none),
+        .color_set = @splat(.empty),
+        .ptype_set = @splat(.empty),
+        .piece_list_sq = @splat(@splat(.none)),
+        .piece_list_ptype = @splat(@splat(.none)),
+        .enpassant = .none,
         .fifty_move_clock = 0,
         .ply_since_null = 0,
         .ply = 0,
@@ -278,7 +352,7 @@ fn recalculateDanger(self: *Position) void {
 
     var potential_pinners = diagonal.bitOr(orthogonal).iter();
     while (potential_pinners.next()) |sq| {
-        const pin_ray = rays.between(king, sq);
+        const pin_ray = SquareSet.rayBetween(king, sq);
         const blockers = pin_ray.bitAnd(friend);
         switch (blockers.popcount()) {
             0 => self.checkers.write(sq, true),
@@ -298,7 +372,7 @@ fn recalculateDanger(self: *Position) void {
     }
     var checkers_iter = self.checkers.iter();
     while (checkers_iter.next()) |checker| {
-        self.danger = self.danger.bitOr(rays.past(checker, king));
+        self.danger = self.danger.bitOr(SquareSet.rayPast(checker, king));
     }
 }
 
@@ -307,12 +381,12 @@ pub const Castling = struct {
 
     pub const empty: Castling = .{ .raw = @splat(@intFromEnum(Square.none)) };
 
-    fn isEmpty(self: Castling) bool {
+    pub fn isEmpty(self: Castling) bool {
         return @reduce(.And, self.raw == empty.raw);
     }
 
     // Determine if castleable rooks are in classical starting position.
-    fn maybeClassical(self: Castling) bool {
+    pub fn maybeClassical(self: Castling) bool {
         const classical_full = @Vector(4, u8){
             @intFromEnum(Square.a1),
             @intFromEnum(Square.h1),
@@ -322,42 +396,42 @@ pub const Castling = struct {
         return @reduce(.And, (self.raw == classical_full) | (self.raw == empty.raw));
     }
 
-    fn read(self: Castling, color: Color, side: Side) Square {
+    pub fn read(self: Castling, color: Color, side: Side) Square {
         return switch (color.toIndex() * 2 + @intFromEnum(side)) {
             inline 0, 1, 2, 3 => |x| @enumFromInt(self.raw[x]),
             else => unreachable,
         };
     }
 
-    fn write(self: *Castling, color: Color, side: Side, sq: Square) void {
+    pub fn write(self: *Castling, color: Color, side: Side, sq: Square) void {
         switch (color.toIndex() * 2 + @intFromEnum(side)) {
             inline 0, 1, 2, 3 => |x| self.raw[x] = @intFromEnum(sq),
             else => unreachable,
         }
     }
 
-    fn clear(self: Castling, color: Color) void {
+    pub fn clear(self: Castling, color: Color) void {
         self.raw[color.toIndex() * 2 + 0] = .none;
         self.raw[color.toIndex() * 2 + 1] = .none;
     }
 
-    fn unset(self: *Castling, sq: Square) void {
+    pub fn unset(self: *Castling, sq: Square) void {
         const needle: @Vector(4, u8) = @splat(sq.raw);
         self.raw = @select(u8, self.raw == needle, empty.raw, self.raw);
     }
 
-    fn hasColor(self: Castling, color: Color) bool {
+    pub fn hasColor(self: Castling, color: Color) bool {
         assert(@intFromEnum(Square.none) == 0x80);
         const x: [2]u16 = @bitCast(self.raw);
         return x[color.toIndex()] != 0x8080;
     }
 
-    fn hasSquare(self: Castling, sq: Square) void {
+    pub fn hasSquare(self: Castling, sq: Square) void {
         const needle: @Vector(4, u8) = @splat(sq.raw);
         return @reduce(.Or, self.raw == needle);
     }
 
-    fn toIndex(self: Castling) u4 {
+    pub fn toIndex(self: Castling) u4 {
         assert(@intFromEnum(Square.none) == 0x80);
         return @bitCast((self.raw & empty.raw) == empty.raw);
     }
@@ -398,7 +472,6 @@ const std = @import("std");
 const assert = std.debug.assert;
 const thorn = @import("root.zig");
 const attacks = thorn.attacks;
-const rays = thorn.rays;
 const Color = thorn.Color;
 const ParseError = thorn.ParseError;
 const Piece = thorn.Piece;

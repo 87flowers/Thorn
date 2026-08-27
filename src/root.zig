@@ -1,10 +1,11 @@
 pub const attacks = @import("attacks.zig");
-pub const rays = @import("rays.zig");
+pub const movegen = @import("movegen.zig");
+pub const util = @import("util.zig");
 pub const Move = @import("Move.zig");
 pub const MoveList = @import("MoveList.zig");
 pub const PieceSet = @import("PieceSet.zig");
 pub const Position = @import("Position.zig");
-pub const SquareSet = @import("SquareSet.zig");
+pub const SquareSet = @import("SquareSet.zig").SquareSet;
 
 pub const ParseError = error{
     InvalidChar,
@@ -88,6 +89,10 @@ pub const PieceType = enum(u8) {
             return '.';
         }
         return "pnbrqk"[self.toIndex()];
+    }
+
+    pub fn splat(self: PieceType, comptime size: usize) @Vector(size, u8) {
+        return @splat(@intFromEnum(self));
     }
 
     pub fn format(self: PieceType, writer: *std.Io.Writer) !void {
@@ -244,6 +249,10 @@ pub const Square = enum(u8) {
     pub fn toSet(self: Square) SquareSet {
         assert(self.isSome());
         return SquareSet.make(@as(u64, 1) << @intCast(@intFromEnum(self)));
+    }
+
+    pub fn toggleRankLsb(self: Square) Square {
+        return @enumFromInt(@intFromEnum(self) ^ 0x08);
     }
 
     // Caller has ownership of string

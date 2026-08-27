@@ -16,6 +16,11 @@ pub fn main(init: std.process.Init) !void {
 
     try stdout_writer.print("{f}\n", .{position});
 
+    var moves: thorn.MoveList = .new();
+    thorn.movegen.all(&moves, &position);
+
+    for (moves.constSlice()) |m| try stdout_writer.print("{f} {}\n", .{ m.toString(.frc), moves.len });
+
     try stdout_writer.flush(); // Don't forget to flush!
 }
 

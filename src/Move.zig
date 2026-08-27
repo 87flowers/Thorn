@@ -24,11 +24,11 @@ pub fn make(f: Square, t: Square, fl: Flags) Move {
 }
 
 pub fn from(self: Move) Square {
-    return .{ .raw = @intCast(self.raw & 0x3F) };
+    return Square.fromIndex(@intCast(self.raw & 0x3F));
 }
 
 pub fn to(self: Move) Square {
-    return .{ .raw = @intCast((self.raw >> 6) & 0x3F) };
+    return Square.fromIndex(@intCast((self.raw >> 6) & 0x3F));
 }
 
 pub fn flags(self: Move) Flags {
@@ -76,6 +76,25 @@ pub fn isDoublePush(self: Move) bool {
     return self.flags() == .double_push;
 }
 
+pub fn toString(self: Move, format: MoveFormat) StaticVec(u8, 5) {
+    var result: StaticVec(u8, 5) = .new();
+
+    result.push('a' + self.from().file());
+    result.push('1' + self.from().rank());
+    result.push(blk: {
+        const original = self.to().file();
+        if (format == .classical and self.isCastle()) {
+            if (self.flags() == .castle_aside and original == 0) break :blk 'c';
+            if (self.flags() == .castle_hside and original == 7) break :blk 'g';
+        }
+        break :blk 'a' + original;
+    });
+    result.push('1' + self.to().rank());
+    if (self.isPromo()) result.push(self.promo().toChar());
+
+    return result;
+}
+
 test {
     try std.testing.expectEqual(PieceType.r, make(try Square.parse("d7"), try Square.parse("d8"), Flags.promo_r).promo());
 }
@@ -84,5 +103,7 @@ const Move = @This();
 const std = @import("std");
 const assert = std.debug.assert;
 const thorn = @import("root.zig");
+const MoveFormat = thorn.MoveFormat;
 const PieceType = thorn.PieceType;
 const Square = thorn.Square;
+const StaticVec = thorn.util.StaticVec;
