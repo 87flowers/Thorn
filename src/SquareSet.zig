@@ -70,6 +70,14 @@ pub fn bitNot(self: SquareSet) SquareSet {
     return SquareSet.make(~self.raw);
 }
 
+pub fn insert(self: *SquareSet, other: SquareSet) void {
+    self.raw |= other.raw;
+}
+
+pub fn applyMask(self: *SquareSet, other: SquareSet) void {
+    self.raw &= other.raw;
+}
+
 pub fn shift(self: SquareSet, dir: Dir) SquareSet {
     const file_a = fileMask(0);
     const file_h = fileMask(7);

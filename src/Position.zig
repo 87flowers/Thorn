@@ -1,4 +1,6 @@
 attack_set: [2][16]SquareSet,
+
+masked_attack_set: [16]SquareSet,
 danger: SquareSet,
 pinned: SquareSet,
 checkers: SquareSet,
@@ -60,6 +62,7 @@ pub fn parse(str: []const u8) !Position {
 pub fn parseParts(board_str: []const u8, color_str: []const u8, castle_str: []const u8, enpassant_str: []const u8, fifty_move_clock_str: []const u8, turns_str: []const u8) !Position {
     var position: Position = .{
         .attack_set = @splat(@splat(SquareSet.empty)),
+        .masked_attack_set = @splat(.empty),
         .danger = .empty,
         .pinned = .empty,
         .checkers = .empty,
@@ -271,13 +274,19 @@ fn recalculateDanger(self: *Position) void {
 
     self.pinned = .empty;
     self.checkers = .empty;
+    self.masked_attack_set = self.attack_set[stm.toIndex()];
 
     var potential_pinners = diagonal.bitOr(orthogonal).iter();
     while (potential_pinners.next()) |sq| {
-        const blockers = rays.between(king, sq).bitAnd(friend);
+        const pin_ray = rays.between(king, sq);
+        const blockers = pin_ray.bitAnd(friend);
         switch (blockers.popcount()) {
             0 => self.checkers.write(sq, true),
-            1 => self.pinned = self.pinned.bitOr(blockers),
+            1 => {
+                const id = self.id_mailbox[blockers.lsb().toIndex()];
+                self.masked_attack_set[id.toIndex()].applyMask(pin_ray);
+                self.pinned.insert(blockers);
+            },
             else => {},
         }
     }
