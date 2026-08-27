@@ -68,7 +68,7 @@ pub fn colorAt(self: *const Position, sq: Square) Color {
 }
 
 pub fn whichAt(self: *const Position, sq: Square) PieceId {
-    return self.piece_id[sq.toIndex()];
+    return self.id_mailbox[sq.toIndex()];
 }
 
 pub fn whatIs(self: *const Position, color: Color, id: PieceId) PieceType {
@@ -117,6 +117,165 @@ fn isCastleLegalHelper(self: *const Position, rook: Square, rook_dst: u8, king_d
     const clear = empty.bitOr(rook.toSet()).bitOr(king.toSet());
 
     return rook_ray.bitAndNot(clear).isEmpty() and king_ray.bitAndNot(clear).isEmpty() and king_ray.bitAnd(danger).isEmpty() and !self.pinned.read(rook);
+}
+
+pub fn move(self: *const Position, m: Move) Position {
+    var new_pos = self.*;
+    new_pos.masked_attack_set = @splat(.empty);
+    new_pos.danger = .empty;
+    new_pos.pinned = .empty;
+    new_pos.checkers = .empty;
+
+    new_pos.enpassant = .none;
+
+    const stm = self.sideToMove();
+    const from = m.from();
+    const to = m.to();
+    const src_piece = self.whatAt(from);
+    const dst_piece = self.whatAt(to);
+    const src_id = self.whichAt(from);
+    const dst_id = self.whichAt(to);
+
+    switch (m.flags()) {
+        .normal => {
+            new_pos.removePiece(from, src_piece, src_id);
+            new_pos.addPiece(to, src_piece, src_id);
+            new_pos.castling.unset(from);
+            if (src_piece.ptype() == .k) new_pos.castling.clear(stm);
+            new_pos.fifty_move_clock = if (src_piece.ptype() == .p) 0 else new_pos.fifty_move_clock + 1;
+        },
+        .cap_normal => {
+            new_pos.removePiece(from, src_piece, src_id);
+            new_pos.removePiece(to, dst_piece, dst_id);
+            new_pos.addPiece(to, src_piece, src_id);
+            new_pos.castling.unset(from);
+            new_pos.castling.unset(to);
+            if (src_piece.ptype() == .k) new_pos.castling.clear(stm);
+            new_pos.fifty_move_clock = 0;
+        },
+        .double_push => {
+            new_pos.removePiece(from, src_piece, src_id);
+            new_pos.addPiece(to, src_piece, src_id);
+            new_pos.enpassant = to.toggleRankLsb();
+            new_pos.fifty_move_clock = 0;
+        },
+        .enpassant => {
+            const victim = to.toggleRankLsb();
+            new_pos.removePiece(from, src_piece, src_id);
+            new_pos.removePiece(victim, Piece.make(stm.invert(), .p), self.whichAt(victim));
+            new_pos.addPiece(to, src_piece, src_id);
+            new_pos.fifty_move_clock = 0;
+        },
+        .castle_aside => {
+            const king_src = from;
+            const rook_src = to;
+            const king_id = PieceId.king;
+            const rook_id = dst_id;
+            const king_dst = Square.fromFileAndRank(2, king_src.rank());
+            const rook_dst = Square.fromFileAndRank(3, rook_src.rank());
+            new_pos.removePiece(king_src, Piece.make(stm, .k), king_id);
+            new_pos.removePiece(rook_src, Piece.make(stm, .r), rook_id);
+            new_pos.addPiece(king_dst, Piece.make(stm, .k), king_id);
+            new_pos.addPiece(rook_dst, Piece.make(stm, .r), rook_id);
+            new_pos.castling.clear(stm);
+            new_pos.fifty_move_clock += 1;
+        },
+        .castle_hside => {
+            const king_src = from;
+            const rook_src = to;
+            const king_id = PieceId.king;
+            const rook_id = dst_id;
+            const king_dst = Square.fromFileAndRank(6, king_src.rank());
+            const rook_dst = Square.fromFileAndRank(5, rook_src.rank());
+            new_pos.removePiece(king_src, Piece.make(stm, .k), king_id);
+            new_pos.removePiece(rook_src, Piece.make(stm, .r), rook_id);
+            new_pos.addPiece(king_dst, Piece.make(stm, .k), king_id);
+            new_pos.addPiece(rook_dst, Piece.make(stm, .r), rook_id);
+            new_pos.castling.clear(stm);
+            new_pos.fifty_move_clock += 1;
+        },
+        .promo_n => {
+            new_pos.removePiece(from, src_piece, src_id);
+            new_pos.addPiece(to, Piece.make(stm, .n), src_id);
+            new_pos.fifty_move_clock = 0;
+        },
+        .promo_b => {
+            new_pos.removePiece(from, src_piece, src_id);
+            new_pos.addPiece(to, Piece.make(stm, .b), src_id);
+            new_pos.fifty_move_clock = 0;
+        },
+        .promo_r => {
+            new_pos.removePiece(from, src_piece, src_id);
+            new_pos.addPiece(to, Piece.make(stm, .r), src_id);
+            new_pos.fifty_move_clock = 0;
+        },
+        .promo_q => {
+            new_pos.removePiece(from, src_piece, src_id);
+            new_pos.addPiece(to, Piece.make(stm, .q), src_id);
+            new_pos.fifty_move_clock = 0;
+        },
+        .cap_promo_n => {
+            new_pos.removePiece(from, src_piece, src_id);
+            new_pos.removePiece(to, dst_piece, dst_id);
+            new_pos.addPiece(to, Piece.make(stm, .n), src_id);
+            new_pos.castling.unset(to);
+            new_pos.fifty_move_clock = 0;
+        },
+        .cap_promo_b => {
+            new_pos.removePiece(from, src_piece, src_id);
+            new_pos.removePiece(to, dst_piece, dst_id);
+            new_pos.addPiece(to, Piece.make(stm, .b), src_id);
+            new_pos.castling.unset(to);
+            new_pos.fifty_move_clock = 0;
+        },
+        .cap_promo_r => {
+            new_pos.removePiece(from, src_piece, src_id);
+            new_pos.removePiece(to, dst_piece, dst_id);
+            new_pos.addPiece(to, Piece.make(stm, .r), src_id);
+            new_pos.castling.unset(to);
+            new_pos.fifty_move_clock = 0;
+        },
+        .cap_promo_q => {
+            new_pos.removePiece(from, src_piece, src_id);
+            new_pos.removePiece(to, dst_piece, dst_id);
+            new_pos.addPiece(to, Piece.make(stm, .q), src_id);
+            new_pos.castling.unset(to);
+            new_pos.fifty_move_clock = 0;
+        },
+    }
+
+    new_pos.ply += 1;
+
+    new_pos.recalculateAttacks();
+    new_pos.recalculateDanger();
+
+    return new_pos;
+}
+
+fn removePiece(self: *Position, sq: Square, piece: Piece, id: PieceId) void {
+    const s = sq.toIndex();
+    const c = piece.color().toIndex();
+    const pt = piece.ptype().toIndex();
+    const i = id.toIndex();
+    self.piece_mailbox[s] = .none;
+    self.id_mailbox[s] = .none;
+    self.color_set[c].write(sq, false);
+    self.ptype_set[pt].write(sq, false);
+    self.piece_list_sq[c][i] = .none;
+    self.piece_list_ptype[c][i] = .none;
+}
+
+fn addPiece(self: *Position, sq: Square, piece: Piece, id: PieceId) void {
+    const s = sq.toIndex();
+    const c = piece.color().toIndex();
+    const pt = piece.ptype().toIndex();
+    const i = id.toIndex();
+    self.piece_mailbox[s] = piece;
+    self.id_mailbox[s] = id;
+    self.color_set[c].write(sq, true);
+    self.ptype_set[pt].write(sq, true);
+    self.piece_list_sq[c][i] = sq;
+    self.piece_list_ptype[c][i] = piece.ptype();
 }
 
 // Caller has ownership of string
@@ -410,13 +569,18 @@ pub const Castling = struct {
         }
     }
 
-    pub fn clear(self: Castling, color: Color) void {
-        self.raw[color.toIndex() * 2 + 0] = .none;
-        self.raw[color.toIndex() * 2 + 1] = .none;
+    pub fn clear(self: *Castling, color: Color) void {
+        switch (color.toIndex()) {
+            inline 0, 1 => |c| {
+                self.raw[c * 2 + 0] = @intFromEnum(Square.none);
+                self.raw[c * 2 + 1] = @intFromEnum(Square.none);
+            },
+            else => unreachable,
+        }
     }
 
     pub fn unset(self: *Castling, sq: Square) void {
-        const needle: @Vector(4, u8) = @splat(sq.raw);
+        const needle: @Vector(4, u8) = @splat(@intFromEnum(sq));
         self.raw = @select(u8, self.raw == needle, empty.raw, self.raw);
     }
 
@@ -427,7 +591,7 @@ pub const Castling = struct {
     }
 
     pub fn hasSquare(self: Castling, sq: Square) void {
-        const needle: @Vector(4, u8) = @splat(sq.raw);
+        const needle: @Vector(4, u8) = @splat(@intFromEnum(sq));
         return @reduce(.Or, self.raw == needle);
     }
 
@@ -473,6 +637,7 @@ const assert = std.debug.assert;
 const thorn = @import("root.zig");
 const attacks = thorn.attacks;
 const Color = thorn.Color;
+const Move = thorn.Move;
 const ParseError = thorn.ParseError;
 const Piece = thorn.Piece;
 const PieceId = thorn.PieceId;

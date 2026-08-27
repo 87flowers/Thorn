@@ -114,7 +114,7 @@ pub const SquareSet = packed struct {
             .se => SquareSet.make((self.raw & ~file_h.raw) >> 7),
             .s => SquareSet.make(self.raw >> 8),
             .sw => SquareSet.make((self.raw & ~file_a.raw) >> 9),
-            .w => SquareSet.make(self.raw >> 1),
+            .w => SquareSet.make((self.raw & ~file_a.raw) >> 1),
             .nw => SquareSet.make((self.raw & ~file_a.raw) << 7),
         };
     }

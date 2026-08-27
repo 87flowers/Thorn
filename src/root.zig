@@ -115,6 +115,11 @@ pub const Piece = enum(u8) {
     bq = 0b10010000,
     bk = 0b10100000,
 
+    pub fn make(c: Color, pt: PieceType) Piece {
+        const color_bit = @as(u8, @intFromEnum(c)) << 7;
+        return @enumFromInt(color_bit | @intFromEnum(pt));
+    }
+
     pub fn isSome(self: Piece) bool {
         return self != .none;
     }
@@ -180,6 +185,7 @@ pub const Dir = enum(u8) {
 };
 
 pub const PieceId = enum(u8) {
+    king = 0,
     none = 0x80,
     _,
 

@@ -38,7 +38,7 @@ pub fn rook(occ: SquareSet, sq: Square) SquareSet {
     var f_forward = occ.raw & m.file;
     var r_forward = occ.raw & m.rank;
     var f_reverse = @byteSwap(f_forward);
-    var r_reverse = @bitReverse(f_forward);
+    var r_reverse = @bitReverse(r_forward);
     f_forward -%= bit.raw;
     r_forward -%= bit.raw;
     f_reverse -%= @byteSwap(bit.raw);
