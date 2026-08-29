@@ -110,14 +110,14 @@ fn generatePawnPushes(moves: *MoveList, position: *const Position, valid_destina
     };
     const body: u32 = @truncate(pawns_ok_single.raw >> 16);
 
-    if (home_single != 0) moves.pushPawnRank(home_base, home_single, push, .normal);
-    if (home_double != 0) moves.pushPawnRank(home_base, home_double, double_push, .double_push);
-    if (body != 0) moves.pushPawnBody(body, push);
+    if (home_single != 0) moves.pushPawnRank(home_base, home_single, push, stm, .normal);
+    if (home_double != 0) moves.pushPawnRank(home_base, home_double, double_push, stm, .double_push);
+    if (body != 0) moves.pushPawnBody(body, stm);
     if (promoable != 0) {
-        moves.pushPawnRank(promoable_base, promoable, push, .promo_q);
-        moves.pushPawnRank(promoable_base, promoable, push, .promo_n);
-        moves.pushPawnRank(promoable_base, promoable, push, .promo_r);
-        moves.pushPawnRank(promoable_base, promoable, push, .promo_b);
+        moves.pushPawnRank(promoable_base, promoable, push, stm, .promo_q);
+        moves.pushPawnRank(promoable_base, promoable, push, stm, .promo_n);
+        moves.pushPawnRank(promoable_base, promoable, push, stm, .promo_r);
+        moves.pushPawnRank(promoable_base, promoable, push, stm, .promo_b);
     }
 }
 

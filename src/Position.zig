@@ -180,8 +180,8 @@ pub fn move(self: *const Position, m: Move) Position {
 
             new_pos.updateAttacks(stm, src_id, src_piece.ptype(), to);
             new_pos.removeAttacks(stm.invert(), dst_id);
-            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{ from, to })));
-            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{ from, to })));
+            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{from})));
+            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{from})));
         },
         .double_push => {
             new_pos.removePiece(from, src_piece, src_id);
@@ -289,8 +289,8 @@ pub fn move(self: *const Position, m: Move) Position {
 
             new_pos.updateAttacks(stm, src_id, .n, to);
             new_pos.removeAttacks(stm.invert(), dst_id);
-            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{ from, to })));
-            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{ from, to })));
+            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{from})));
+            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{from})));
         },
         .cap_promo_b => {
             new_pos.removePiece(from, src_piece, src_id);
@@ -301,8 +301,8 @@ pub fn move(self: *const Position, m: Move) Position {
 
             new_pos.updateAttacks(stm, src_id, .b, to);
             new_pos.removeAttacks(stm.invert(), dst_id);
-            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{ from, to })));
-            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{ from, to })));
+            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{from})));
+            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{from})));
         },
         .cap_promo_r => {
             new_pos.removePiece(from, src_piece, src_id);
@@ -313,8 +313,8 @@ pub fn move(self: *const Position, m: Move) Position {
 
             new_pos.updateAttacks(stm, src_id, .r, to);
             new_pos.removeAttacks(stm.invert(), dst_id);
-            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{ from, to })));
-            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{ from, to })));
+            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{from})));
+            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{from})));
         },
         .cap_promo_q => {
             new_pos.removePiece(from, src_piece, src_id);
@@ -325,8 +325,8 @@ pub fn move(self: *const Position, m: Move) Position {
 
             new_pos.updateAttacks(stm, src_id, .q, to);
             new_pos.removeAttacks(stm.invert(), dst_id);
-            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{ from, to })));
-            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{ from, to })));
+            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{from})));
+            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{from})));
         },
     }
 
