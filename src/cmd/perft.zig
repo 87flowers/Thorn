@@ -8,7 +8,7 @@ pub fn run(io: std.Io, writer: *std.Io.Writer, position: *const Position, depth:
         const child_result = core(&child_position, depth - 1);
         result += child_result;
 
-        try writer.print("{f}: {}\n", .{ m.toString(.frc), result });
+        try writer.print("{f}: {}\n", .{ m.toString(.frc), child_result });
         try writer.flush();
     }
     const elapsed: f64 = @floatFromInt(timer.untilNow(io, .awake).toNanoseconds());
