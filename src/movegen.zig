@@ -14,7 +14,7 @@ fn generateMoves(moves: *MoveList, position: *const Position) void {
             const checker = position.checkers.lsb();
             const king = position.kingSq(position.sideToMove());
             if (position.ptypeAt(checker) == .p) generateEnpassant(moves, position);
-            generateMostMoves(moves, position, SquareSet.rayBetween(king, checker));
+            generateMostMoves(moves, position, SquareSet.rayExclusiveInclusive(king, checker));
             generateKingMoves(moves, position);
         },
         else => generateKingMoves(moves, position),

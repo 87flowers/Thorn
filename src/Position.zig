@@ -92,25 +92,23 @@ pub fn whichMaskedAttackTo(self: *const Position, dst: SquareSet) PieceSet {
 }
 
 pub fn isCastleLegal(self: *const Position, comptime side: Castling.Side) bool {
-    const stm = self.sideToMove();
-    switch (stm) {
-        .white => {
-            const rook = self.castling.read(.white, side);
-            return rook.isSome() and self.isCastleLegalHelper(rook, 3, 2);
-        },
-        .black => {
-            const rook = self.castling.read(.black, side);
-            return rook.isSome() and self.isCastleLegalHelper(rook, 5, 6);
+    switch (self.sideToMove()) {
+        inline else => |stm| {
+            const rook = self.castling.read(stm, side);
+            return rook.isSome() and self.checkers.isEmpty() and switch (side) {
+                .a => self.isCastleLegalHelper(rook, .d, .c),
+                .h => self.isCastleLegalHelper(rook, .f, .g),
+            };
         },
     }
 }
 
-fn isCastleLegalHelper(self: *const Position, rook: Square, rook_dst: u8, king_dst: u8) bool {
+fn isCastleLegalHelper(self: *const Position, rook: Square, rook_dst: File, king_dst: File) bool {
     const stm = self.sideToMove();
     const king = self.kingSq(stm);
 
-    const rook_ray = SquareSet.rayInclusive(rook, Square.fromFileAndRank(rook_dst, king.rank()));
-    const king_ray = SquareSet.rayInclusive(king, Square.fromFileAndRank(king_dst, king.rank()));
+    const rook_ray = SquareSet.rayExclusiveInclusive(rook, Square.fromFileAndRank(rook_dst, king.rank()));
+    const king_ray = SquareSet.rayExclusiveInclusive(king, Square.fromFileAndRank(king_dst, king.rank()));
 
     const empty = self.occupiedSet().bitNot();
     const danger = self.danger;
@@ -171,8 +169,8 @@ pub fn move(self: *const Position, m: Move) Position {
             const rook_src = to;
             const king_id = PieceId.king;
             const rook_id = dst_id;
-            const king_dst = Square.fromFileAndRank(2, king_src.rank());
-            const rook_dst = Square.fromFileAndRank(3, rook_src.rank());
+            const king_dst = Square.fromFileAndRank(.c, king_src.rank());
+            const rook_dst = Square.fromFileAndRank(.d, rook_src.rank());
             new_pos.removePiece(king_src, Piece.make(stm, .k), king_id);
             new_pos.removePiece(rook_src, Piece.make(stm, .r), rook_id);
             new_pos.addPiece(king_dst, Piece.make(stm, .k), king_id);
@@ -185,8 +183,8 @@ pub fn move(self: *const Position, m: Move) Position {
             const rook_src = to;
             const king_id = PieceId.king;
             const rook_id = dst_id;
-            const king_dst = Square.fromFileAndRank(6, king_src.rank());
-            const rook_dst = Square.fromFileAndRank(5, rook_src.rank());
+            const king_dst = Square.fromFileAndRank(.g, king_src.rank());
+            const rook_dst = Square.fromFileAndRank(.f, rook_src.rank());
             new_pos.removePiece(king_src, Piece.make(stm, .k), king_id);
             new_pos.removePiece(rook_src, Piece.make(stm, .r), rook_id);
             new_pos.addPiece(king_dst, Piece.make(stm, .k), king_id);
@@ -332,7 +330,7 @@ pub fn parseParts(board_str: []const u8, color_str: []const u8, castle_str: []co
                 else => |ch| {
                     if (file >= 8) return ParseError.InvalidBoard;
 
-                    const sq = Square.fromFileAndRank(file, rank);
+                    const sq = Square.fromFileAndRank(.fromIndex(file), .fromIndex(rank));
                     const piece = try Piece.parse(ch);
                     const color = piece.color();
                     const ptype = piece.ptype();
@@ -371,23 +369,23 @@ pub fn parseParts(board_str: []const u8, color_str: []const u8, castle_str: []co
     // Parse castling
     if (!std.mem.eql(u8, castle_str, "-")) {
         for (castle_str) |ch| {
-            const color, const file = blk: {
-                const color, var f: i8, const dir: i8 = switch (ch) {
+            const color: Color, const file: File = blk: {
+                const color: Color, var f: i8, const dir: i8 = switch (ch) {
                     // Scan required
-                    'Q' => .{ Color.white, 0, 1 },
-                    'K' => .{ Color.white, 7, -1 },
-                    'q' => .{ Color.black, 0, 1 },
-                    'k' => .{ Color.black, 7, -1 },
+                    'Q' => .{ .white, 0, 1 },
+                    'K' => .{ .white, 7, -1 },
+                    'q' => .{ .black, 0, 1 },
+                    'k' => .{ .black, 7, -1 },
                     // Scanning not required, location directly specified
-                    'A'...'H' => break :blk .{ .white, ch - 'A' },
-                    'a'...'h' => break :blk .{ .black, ch - 'a' },
+                    'A'...'H' => break :blk .{ .white, .fromIndex(ch - 'A') },
+                    'a'...'h' => break :blk .{ .black, .fromIndex(ch - 'a') },
                     // Invalid
                     else => return ParseError.InvalidChar,
                 };
 
                 // Scan for rook
                 while (f >= 0 and f <= 7) : (f += dir) {
-                    const file: u8 = @intCast(f);
+                    const file: File = .fromIndex(@intCast(f));
                     const sq = Square.fromFileAndRank(file, color.homeRank());
                     const piece = position.piece_mailbox[sq.toIndex()];
                     if (piece.color() == color and piece.ptype() == .r)
@@ -406,8 +404,8 @@ pub fn parseParts(board_str: []const u8, color_str: []const u8, castle_str: []co
             if (maybe_rook.color() != color or maybe_rook.ptype() != .r) return ParseError.InvalidBoard;
             if (king_sq.rank() != color.homeRank()) return ParseError.InvalidBoard;
 
-            if (rook_sq.file() < king_sq.file()) position.castling.write(color, .a, rook_sq);
-            if (rook_sq.file() > king_sq.file()) position.castling.write(color, .h, rook_sq);
+            if (rook_sq.file().toIndex() < king_sq.file().toIndex()) position.castling.write(color, .a, rook_sq);
+            if (rook_sq.file().toIndex() > king_sq.file().toIndex()) position.castling.write(color, .h, rook_sq);
         }
     }
 
@@ -471,11 +469,11 @@ pub fn format(self: *const Position, writer: *std.Io.Writer) !void {
         } else {
             inline for ([_]Castling.Side{ .h, .a }) |side| {
                 const sq = self.castling.read(.white, side);
-                if (sq.isSome()) try writer.print("{c}", .{'A' + sq.file()});
+                if (sq.isSome()) try writer.print("{c}", .{sq.file().toUpperChar()});
             }
             inline for ([_]Castling.Side{ .h, .a }) |side| {
                 const sq = self.castling.read(.black, side);
-                if (sq.isSome()) try writer.print("{c}", .{'a' + sq.file()});
+                if (sq.isSome()) try writer.print("{c}", .{sq.file().toLowerChar()});
             }
         }
     }
@@ -511,7 +509,7 @@ fn recalculateDanger(self: *Position) void {
 
     var potential_pinners = diagonal.bitOr(orthogonal).iter();
     while (potential_pinners.next()) |sq| {
-        const pin_ray = SquareSet.rayBetween(king, sq);
+        const pin_ray = SquareSet.rayExclusiveInclusive(king, sq);
         const blockers = pin_ray.bitAnd(friend);
         switch (blockers.popcount()) {
             0 => self.checkers.write(sq, true),
@@ -533,6 +531,12 @@ fn recalculateDanger(self: *Position) void {
     while (checkers_iter.next()) |checker| {
         self.danger = self.danger.bitOr(SquareSet.rayPast(checker, king));
     }
+
+    // TODO: Consider doing checkers as PieceSet instead of SquareSet
+    // Alternatively consider implementing isInCheck as a danger read and checkerCount as a count.
+    // This is done after the self.danger bit because these checkers are not sliders and thus should not have danger extension.
+    self.checkers.insert(attacks.knight(king).bitAnd(self.coloredPtypeSet(stm.invert(), .n)));
+    self.checkers.insert(attacks.pawn(king, stm).bitAnd(self.coloredPtypeSet(stm.invert(), .p)));
 }
 
 pub const Castling = struct {
@@ -590,7 +594,7 @@ pub const Castling = struct {
         return x[color.toIndex()] != 0x8080;
     }
 
-    pub fn hasSquare(self: Castling, sq: Square) void {
+    pub fn hasSquare(self: Castling, sq: Square) bool {
         const needle: @Vector(4, u8) = @splat(@intFromEnum(sq));
         return @reduce(.Or, self.raw == needle);
     }
@@ -637,6 +641,7 @@ const assert = std.debug.assert;
 const thorn = @import("root.zig");
 const attacks = thorn.attacks;
 const Color = thorn.Color;
+const File = thorn.File;
 const Move = thorn.Move;
 const ParseError = thorn.ParseError;
 const Piece = thorn.Piece;

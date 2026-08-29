@@ -76,20 +76,51 @@ pub fn isDoublePush(self: Move) bool {
     return self.flags() == .double_push;
 }
 
+pub fn parse(str: []const u8, context: *const Position) ParseError!Move {
+    if (str.len < 4 or str.len > 5) return ParseError.InvalidLength;
+
+    const f = try Square.parse(str[0..2]);
+    const t = try Square.parse(str[2..4]);
+    const ptype = context.ptypeAt(f);
+    const capture = context.whatAt(t).isSome();
+
+    if (str.len == 4) {
+        if (ptype == .p) {
+            if (context.enpassant == t) return Move.make(f, t, .enpassant);
+            if ((f.rank().toIndex() ^ t.rank().toIndex()) == 2) return Move.make(f, t, .double_push);
+        }
+        if (ptype == .k and context.castling.hasSquare(t)) {
+            if (context.castling.read(context.sideToMove(), .a) == t) return Move.make(f, t, .castle_aside);
+            if (context.castling.read(context.sideToMove(), .h) == t) return Move.make(f, t, .castle_hside);
+            if (f.file() == .e and t.file() == .c) return Move.make(f, t, .castle_aside);
+            if (f.file() == .e and t.file() == .g) return Move.make(f, t, .castle_hside);
+        }
+        return Move.make(f, t, if (capture) .cap_normal else .normal);
+    }
+
+    return Move.make(f, t, switch (str[4]) {
+        'q' => if (capture) .cap_promo_q else .promo_q,
+        'r' => if (capture) .cap_promo_r else .promo_r,
+        'b' => if (capture) .cap_promo_b else .promo_b,
+        'n' => if (capture) .cap_promo_n else .promo_n,
+        else => return ParseError.InvalidChar,
+    });
+}
+
 pub fn toString(self: Move, format: MoveFormat) StaticVec(u8, 5) {
     var result: StaticVec(u8, 5) = .new();
 
-    result.push('a' + self.from().file());
-    result.push('1' + self.from().rank());
+    result.push(self.from().file().toChar());
+    result.push(self.from().rank().toChar());
     result.push(blk: {
         const original = self.to().file();
         if (format == .classical and self.isCastle()) {
-            if (self.flags() == .castle_aside and original == 0) break :blk 'c';
-            if (self.flags() == .castle_hside and original == 7) break :blk 'g';
+            if (self.flags() == .castle_aside and original == .a) break :blk 'c';
+            if (self.flags() == .castle_hside and original == .h) break :blk 'g';
         }
-        break :blk 'a' + original;
+        break :blk original.toChar();
     });
-    result.push('1' + self.to().rank());
+    result.push(self.to().rank().toChar());
     if (self.isPromo()) result.push(self.promo().toChar());
 
     return result;
@@ -104,6 +135,8 @@ const std = @import("std");
 const assert = std.debug.assert;
 const thorn = @import("root.zig");
 const MoveFormat = thorn.MoveFormat;
+const ParseError = thorn.ParseError;
 const PieceType = thorn.PieceType;
+const Position = thorn.Position;
 const Square = thorn.Square;
 const StaticVec = thorn.util.StaticVec;

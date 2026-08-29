@@ -9,9 +9,8 @@ pub const SquareSet = packed struct {
         return SquareSet{ .raw = raw };
     }
 
-    pub fn fileMask(file: u8) SquareSet {
-        assert(file >= 0 and file <= 7);
-        return make(@as(u64, 0x0101010101010101) << @intCast(file));
+    pub fn fileMask(file: File) SquareSet {
+        return make(@as(u64, 0x0101010101010101) << @intFromEnum(file));
     }
 
     pub fn rankMask(rank: u8) SquareSet {
@@ -30,16 +29,25 @@ pub const SquareSet = packed struct {
         return result;
     }
 
+    // (a, b)
     pub fn rayBetween(a: Square, b: Square) SquareSet {
         assert(a.isSome() and b.isSome());
         return ray_between_table[a.toIndex()][b.toIndex()];
     }
 
+    // [a, b)
+    pub fn rayExclusiveInclusive(a: Square, b: Square) SquareSet {
+        assert(a.isSome() and b.isSome());
+        return ray_exclusive_inclusive_table[a.toIndex()][b.toIndex()];
+    }
+
+    // [a, b]
     pub fn rayInclusive(a: Square, b: Square) SquareSet {
         assert(a.isSome() and b.isSome());
         return ray_inclusive_table[a.toIndex()][b.toIndex()];
     }
 
+    // (a, b] and every square past b
     pub fn rayPast(from: Square, to: Square) SquareSet {
         assert(from.isSome() and to.isSome());
         return ray_past_table[from.toIndex()][to.toIndex()];
@@ -105,8 +113,8 @@ pub const SquareSet = packed struct {
     }
 
     pub fn shift(self: SquareSet, dir: Dir) SquareSet {
-        const file_a = fileMask(0);
-        const file_h = fileMask(7);
+        const file_a = fileMask(.a);
+        const file_h = fileMask(.h);
         return switch (dir) {
             .n => SquareSet.make(self.raw << 8),
             .ne => SquareSet.make((self.raw & ~file_h.raw) << 9),
@@ -152,6 +160,30 @@ const ray_between_table: [64][64]SquareSet = blk: {
     break :blk result;
 };
 
+const ray_exclusive_inclusive_table: [64][64]SquareSet = blk: {
+    @setEvalBranchQuota(100_000);
+    var result: [64][64]SquareSet = @splat(@splat(.empty));
+    for (0..64) |origin| {
+        for ([_]Dir{ .n, .ne, .e, .se, .s, .sw, .w, .nw }) |dir| {
+            var current = Square.fromIndex(origin).toSet().shift(dir);
+            var ray = SquareSet.empty;
+            while (!current.isEmpty()) {
+                ray.insert(current);
+
+                const dst = current.lsb().toIndex();
+                result[origin][dst] = ray;
+
+                current = current.shift(dir);
+            }
+        }
+        // Required for knight moves
+        for (0..64) |dst| {
+            result[origin][dst].insert(Square.fromIndex(dst).toSet());
+        }
+    }
+    break :blk result;
+};
+
 const ray_inclusive_table: [64][64]SquareSet = blk: {
     @setEvalBranchQuota(100_000);
     var result: [64][64]SquareSet = @splat(@splat(.empty));
@@ -167,6 +199,11 @@ const ray_inclusive_table: [64][64]SquareSet = blk: {
 
                 current = current.shift(dir);
             }
+        }
+        // Required for knight moves
+        for (0..64) |dst| {
+            result[origin][dst].insert(Square.fromIndex(origin).toSet());
+            result[origin][dst].insert(Square.fromIndex(dst).toSet());
         }
     }
     break :blk result;
@@ -191,4 +228,5 @@ const std = @import("std");
 const assert = std.debug.assert;
 const thorn = @import("root.zig");
 const Dir = thorn.Dir;
+const File = thorn.File;
 const Square = thorn.Square;

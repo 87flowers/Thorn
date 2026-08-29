@@ -30,10 +30,10 @@ pub const Color = enum(u1) {
         return @enumFromInt(@intFromEnum(self) ^ 1);
     }
 
-    pub fn homeRank(self: Color) u8 {
+    pub fn homeRank(self: Color) Rank {
         return switch (self) {
-            .white => 0,
-            .black => 7,
+            .white => .first,
+            .black => .eighth,
         };
     }
 
@@ -206,6 +206,62 @@ pub const PieceId = enum(u8) {
     }
 };
 
+pub const File = enum {
+    a,
+    b,
+    c,
+    d,
+    e,
+    f,
+    g,
+    h,
+
+    pub fn fromIndex(i: u8) File {
+        assert(i < 8);
+        return @enumFromInt(i);
+    }
+
+    pub fn toIndex(f: File) usize {
+        return @intFromEnum(f);
+    }
+
+    pub fn toChar(f: File) u8 {
+        return 'a' + @as(u8, @intFromEnum(f));
+    }
+
+    pub fn toLowerChar(f: File) u8 {
+        return 'a' + @as(u8, @intFromEnum(f));
+    }
+
+    pub fn toUpperChar(f: File) u8 {
+        return 'A' + @as(u8, @intFromEnum(f));
+    }
+};
+
+pub const Rank = enum {
+    first,
+    second,
+    third,
+    fourth,
+    fifth,
+    sixth,
+    seventh,
+    eighth,
+
+    pub fn fromIndex(i: u8) Rank {
+        assert(i < 8);
+        return @enumFromInt(i);
+    }
+
+    pub fn toIndex(r: Rank) usize {
+        return @intFromEnum(r);
+    }
+
+    pub fn toChar(r: Rank) u8 {
+        return '1' + @as(u8, @intFromEnum(r));
+    }
+};
+
 pub const Square = enum(u8) {
     // zig fmt: off
     a1 =  0, b1 =  1, c1 =  2, d1 =  3, e1 =  4, f1 =  5, g1 =  6, h1 =  7,
@@ -224,10 +280,8 @@ pub const Square = enum(u8) {
         return @enumFromInt(i);
     }
 
-    pub fn fromFileAndRank(f: u8, r: u8) Square {
-        assert(f >= 0 and f <= 7);
-        assert(r >= 0 and r <= 7);
-        return @enumFromInt(f + r * 8);
+    pub fn fromFileAndRank(f: File, r: Rank) Square {
+        return @enumFromInt(@intFromEnum(f) + @as(u8, @intFromEnum(r)) * 8);
     }
 
     pub fn isSome(self: Square) bool {
@@ -242,14 +296,14 @@ pub const Square = enum(u8) {
         return @intFromEnum(self);
     }
 
-    pub fn file(self: Square) u8 {
+    pub fn file(self: Square) File {
         assert(self.isSome());
-        return @intFromEnum(self) % 8;
+        return @enumFromInt(@intFromEnum(self) % 8);
     }
 
-    pub fn rank(self: Square) u8 {
+    pub fn rank(self: Square) Rank {
         assert(self.isSome());
-        return @intFromEnum(self) / 8;
+        return @enumFromInt(@intFromEnum(self) / 8);
     }
 
     pub fn toSet(self: Square) SquareSet {
@@ -268,11 +322,11 @@ pub const Square = enum(u8) {
         if (str[1] < '1' or str[1] > '8') return ParseError.InvalidChar;
         const f = str[0] - 'a';
         const r = str[1] - '1';
-        return fromFileAndRank(f, r);
+        return fromFileAndRank(.fromIndex(f), .fromIndex(r));
     }
 
     pub fn format(self: Square, writer: *std.Io.Writer) !void {
-        try writer.print("{c}{c}", .{ 'a' + self.file(), '1' + self.rank() });
+        try writer.print("{c}{c}", .{ self.file().toChar(), self.rank().toChar() });
     }
 
     test {
