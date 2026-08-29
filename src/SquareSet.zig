@@ -9,6 +9,22 @@ pub const SquareSet = packed struct {
         return SquareSet{ .raw = raw };
     }
 
+    pub fn set(args: anytype) SquareSet {
+        const ArgsType = @TypeOf(args);
+        const args_type_info = @typeInfo(ArgsType);
+        if (args_type_info != .@"struct") @compileError("expected tuple argument, found " ++ @typeName(ArgsType));
+
+        var result: SquareSet = .empty;
+
+        inline for (args_type_info.@"struct".fields) |field| {
+            if (field.type != Square) @compileError("expected Square, found " ++ @typeName(field.type));
+            const arg: Square = @field(args, field.name);
+            result.insert(arg.toSet());
+        }
+
+        return result;
+    }
+
     pub fn fileMask(file: File) SquareSet {
         return make(@as(u64, 0x0101010101010101) << @intFromEnum(file));
     }

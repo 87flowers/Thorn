@@ -61,12 +61,15 @@ pub const Color = enum(u1) {
 
 pub const PieceType = enum(u8) {
     none = 0,
+
     p = 0b000001,
     n = 0b000010,
     b = 0b000100,
     r = 0b001000,
     q = 0b010000,
     k = 0b100000,
+
+    pub const slider: u8 = 0b011100;
 
     pub fn isSome(self: PieceType) bool {
         return self != .none;

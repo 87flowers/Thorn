@@ -93,6 +93,20 @@ pub fn whichAre(self: *const Position, color: Color, ptype: PieceType) PieceSet 
     return PieceSet.make(@bitCast(v == ptype.splat(16)));
 }
 
+pub fn whichAreSlider(self: *const Position, color: Color) PieceSet {
+    const v: @Vector(16, u8) = @bitCast(self.piece_list_ptype[color.toIndex()]);
+    const needle: @Vector(16, u8) = @splat(PieceType.slider);
+    const zero: @Vector(16, u8) = @splat(0);
+    return PieceSet.make(@bitCast((v & needle) != zero));
+}
+
+pub fn whichAttackTo(self: *const Position, color: Color, dst: SquareSet) PieceSet {
+    const v: @Vector(16, u64) = @bitCast(self.attack_set[color.toIndex()]);
+    const bb: @Vector(16, u64) = @splat(dst.raw);
+    const zero: @Vector(16, u64) = @splat(0);
+    return PieceSet.make(@bitCast((v & bb) != zero));
+}
+
 pub fn whichMaskedAttackTo(self: *const Position, dst: SquareSet) PieceSet {
     const v: @Vector(16, u64) = @bitCast(self.masked_attack_set);
     const bb: @Vector(16, u64) = @splat(dst.raw);
@@ -150,6 +164,10 @@ pub fn move(self: *const Position, m: Move) Position {
             new_pos.castling.unset(from);
             if (src_piece.ptype() == .k) new_pos.castling.clear(stm);
             new_pos.fifty_move_clock = if (src_piece.ptype() == .p) 0 else new_pos.fifty_move_clock + 1;
+
+            new_pos.updateAttacks(stm, src_id, src_piece.ptype(), to);
+            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{ from, to })));
+            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{ from, to })));
         },
         .cap_normal => {
             new_pos.removePiece(from, src_piece, src_id);
@@ -159,19 +177,34 @@ pub fn move(self: *const Position, m: Move) Position {
             new_pos.castling.unset(to);
             if (src_piece.ptype() == .k) new_pos.castling.clear(stm);
             new_pos.fifty_move_clock = 0;
+
+            new_pos.updateAttacks(stm, src_id, src_piece.ptype(), to);
+            new_pos.removeAttacks(stm.invert(), dst_id);
+            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{ from, to })));
+            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{ from, to })));
         },
         .double_push => {
             new_pos.removePiece(from, src_piece, src_id);
             new_pos.addPiece(to, src_piece, src_id);
             new_pos.enpassant = to.toggleRankLsb();
             new_pos.fifty_move_clock = 0;
+
+            new_pos.updateAttacks(stm, src_id, src_piece.ptype(), to);
+            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{ from, to })));
+            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{ from, to })));
         },
         .enpassant => {
             const victim = to.toggleRankLsb();
+            const victim_id = self.whichAt(victim);
             new_pos.removePiece(from, src_piece, src_id);
-            new_pos.removePiece(victim, Piece.make(stm.invert(), .p), self.whichAt(victim));
+            new_pos.removePiece(victim, Piece.make(stm.invert(), .p), victim_id);
             new_pos.addPiece(to, src_piece, src_id);
             new_pos.fifty_move_clock = 0;
+
+            new_pos.updateAttacks(stm, src_id, src_piece.ptype(), to);
+            new_pos.removeAttacks(stm.invert(), victim_id);
+            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{ from, to, victim })));
+            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{ from, to, victim })));
         },
         .castle_aside => {
             const king_src = from;
@@ -186,6 +219,11 @@ pub fn move(self: *const Position, m: Move) Position {
             new_pos.addPiece(rook_dst, Piece.make(stm, .r), rook_id);
             new_pos.castling.clear(stm);
             new_pos.fifty_move_clock += 1;
+
+            new_pos.updateAttacks(stm, king_id, .k, king_dst);
+            new_pos.updateAttacks(stm, rook_id, .r, rook_dst);
+            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{ king_src, rook_src, king_dst, rook_dst })));
+            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{ king_src, rook_src, king_dst, rook_dst })));
         },
         .castle_hside => {
             const king_src = from;
@@ -200,26 +238,47 @@ pub fn move(self: *const Position, m: Move) Position {
             new_pos.addPiece(rook_dst, Piece.make(stm, .r), rook_id);
             new_pos.castling.clear(stm);
             new_pos.fifty_move_clock += 1;
+
+            new_pos.updateAttacks(stm, king_id, .k, king_dst);
+            new_pos.updateAttacks(stm, rook_id, .r, rook_dst);
+            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{ king_src, rook_src, king_dst, rook_dst })));
+            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{ king_src, rook_src, king_dst, rook_dst })));
         },
         .promo_n => {
             new_pos.removePiece(from, src_piece, src_id);
             new_pos.addPiece(to, Piece.make(stm, .n), src_id);
             new_pos.fifty_move_clock = 0;
+
+            new_pos.updateAttacks(stm, src_id, .n, to);
+            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{ from, to })));
+            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{ from, to })));
         },
         .promo_b => {
             new_pos.removePiece(from, src_piece, src_id);
             new_pos.addPiece(to, Piece.make(stm, .b), src_id);
             new_pos.fifty_move_clock = 0;
+
+            new_pos.updateAttacks(stm, src_id, .b, to);
+            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{ from, to })));
+            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{ from, to })));
         },
         .promo_r => {
             new_pos.removePiece(from, src_piece, src_id);
             new_pos.addPiece(to, Piece.make(stm, .r), src_id);
             new_pos.fifty_move_clock = 0;
+
+            new_pos.updateAttacks(stm, src_id, .r, to);
+            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{ from, to })));
+            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{ from, to })));
         },
         .promo_q => {
             new_pos.removePiece(from, src_piece, src_id);
             new_pos.addPiece(to, Piece.make(stm, .q), src_id);
             new_pos.fifty_move_clock = 0;
+
+            new_pos.updateAttacks(stm, src_id, .q, to);
+            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{ from, to })));
+            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{ from, to })));
         },
         .cap_promo_n => {
             new_pos.removePiece(from, src_piece, src_id);
@@ -227,6 +286,11 @@ pub fn move(self: *const Position, m: Move) Position {
             new_pos.addPiece(to, Piece.make(stm, .n), src_id);
             new_pos.castling.unset(to);
             new_pos.fifty_move_clock = 0;
+
+            new_pos.updateAttacks(stm, src_id, .n, to);
+            new_pos.removeAttacks(stm.invert(), dst_id);
+            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{ from, to })));
+            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{ from, to })));
         },
         .cap_promo_b => {
             new_pos.removePiece(from, src_piece, src_id);
@@ -234,6 +298,11 @@ pub fn move(self: *const Position, m: Move) Position {
             new_pos.addPiece(to, Piece.make(stm, .b), src_id);
             new_pos.castling.unset(to);
             new_pos.fifty_move_clock = 0;
+
+            new_pos.updateAttacks(stm, src_id, .b, to);
+            new_pos.removeAttacks(stm.invert(), dst_id);
+            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{ from, to })));
+            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{ from, to })));
         },
         .cap_promo_r => {
             new_pos.removePiece(from, src_piece, src_id);
@@ -241,6 +310,11 @@ pub fn move(self: *const Position, m: Move) Position {
             new_pos.addPiece(to, Piece.make(stm, .r), src_id);
             new_pos.castling.unset(to);
             new_pos.fifty_move_clock = 0;
+
+            new_pos.updateAttacks(stm, src_id, .r, to);
+            new_pos.removeAttacks(stm.invert(), dst_id);
+            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{ from, to })));
+            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{ from, to })));
         },
         .cap_promo_q => {
             new_pos.removePiece(from, src_piece, src_id);
@@ -248,12 +322,16 @@ pub fn move(self: *const Position, m: Move) Position {
             new_pos.addPiece(to, Piece.make(stm, .q), src_id);
             new_pos.castling.unset(to);
             new_pos.fifty_move_clock = 0;
+
+            new_pos.updateAttacks(stm, src_id, .q, to);
+            new_pos.removeAttacks(stm.invert(), dst_id);
+            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{ from, to })));
+            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{ from, to })));
         },
     }
 
     new_pos.ply += 1;
 
-    new_pos.recalculateAttacks();
     new_pos.recalculateDanger();
 
     return new_pos;
@@ -283,6 +361,24 @@ fn addPiece(self: *Position, sq: Square, piece: Piece, id: PieceId) void {
     self.ptype_set[pt].write(sq, true);
     self.piece_list_sq[c][i] = sq;
     self.piece_list_ptype[c][i] = piece.ptype();
+}
+
+fn updateAttacks(self: *Position, color: Color, id: PieceId, ptype: PieceType, sq: Square) void {
+    self.attack_set[color.toIndex()][id.toIndex()] = attacks.ptype(ptype, self.occupiedSet(), sq, color);
+}
+
+fn removeAttacks(self: *Position, color: Color, id: PieceId) void {
+    self.attack_set[color.toIndex()][id.toIndex()] = .empty;
+}
+
+fn updateSliderAttacks(self: *Position, color: Color, ids: PieceSet) void {
+    const occ = self.occupiedSet();
+    var iter = ids.bitAnd(self.whichAreSlider(color)).iter();
+    while (iter.next()) |id| {
+        const sq = self.whereIs(color, id);
+        const ptype = self.whatIs(color, id);
+        self.attack_set[color.toIndex()][id.toIndex()] = attacks.ptype(ptype, occ, sq, color);
+    }
 }
 
 // Caller has ownership of string
