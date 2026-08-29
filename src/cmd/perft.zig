@@ -13,7 +13,7 @@ pub fn run(io: std.Io, writer: *std.Io.Writer, position: *const Position, depth:
     }
     const elapsed: f64 = @floatFromInt(timer.untilNow(io, .awake).toNanoseconds());
     try writer.print("total: {}\n", .{result});
-    try writer.print("perft to depth {} complete in {d:.1}ms ({d:.1} Mnps)", .{
+    try writer.print("perft to depth {} complete in {d:.1}ms ({d:.1} Mnps)\n", .{
         depth,
         elapsed / std.time.ns_per_ms,
         @as(f64, @floatFromInt(result)) / 1_000_000 / (elapsed / std.time.ns_per_s),

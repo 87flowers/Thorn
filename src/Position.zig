@@ -21,6 +21,15 @@ ply: u16,
 
 castling: Castling,
 
+pub const startpos = blk: {
+    @setEvalBranchQuota(100_000);
+    break :blk parse("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1") catch unreachable;
+};
+pub const kiwipete = blk: {
+    @setEvalBranchQuota(100_000);
+    break :blk parse("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1") catch unreachable;
+};
+
 pub fn colorSet(self: *const Position, color: Color) SquareSet {
     return self.color_set[color.toIndex()];
 }

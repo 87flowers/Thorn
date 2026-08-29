@@ -21,7 +21,9 @@ pub fn main(init: std.process.Init) !void {
         if (std.ascii.eqlIgnoreCase(cmd, "position")) {
             const pos_type = it.next() orelse continue;
             if (std.mem.eql(u8, pos_type, "startpos")) {
-                //
+                position = thorn.Position.startpos;
+            } else if (std.mem.eql(u8, pos_type, "kiwipete")) {
+                position = thorn.Position.kiwipete;
             } else if (std.mem.eql(u8, pos_type, "fen")) {
                 const board_str = it.next() orelse "";
                 const color = it.next() orelse "";
