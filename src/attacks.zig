@@ -67,11 +67,7 @@ pub fn king(sq: Square) SquareSet {
 
 pub fn pawn(sq: Square, color: Color) SquareSet {
     assert(sq.isSome());
-    const bb = sq.toSet();
-    return switch (color) {
-        .white => bb.shift(.ne).bitOr(bb.shift(.nw)),
-        .black => bb.shift(.se).bitOr(bb.shift(.sw)),
-    };
+    return pawn_table[color.toIndex()][sq.toIndex()];
 }
 
 const masks_table = blk: {
@@ -91,6 +87,18 @@ const masks_table = blk: {
             .file = SquareSet.rayMask(sq, .n).bitOr(SquareSet.rayMask(sq, .s)).raw,
             .rank = SquareSet.rayMask(sq, .e).bitOr(SquareSet.rayMask(sq, .w)).raw,
         };
+    }
+    break :blk result;
+};
+
+const pawn_table = blk: {
+    @setEvalBranchQuota(100_000);
+    var result: [2][64]SquareSet = undefined;
+    for (0..64) |i| {
+        const sq = Square.fromIndex(i);
+        var bb = sq.toSet();
+        result[0][i] = bb.shift(.ne).bitOr(bb.shift(.nw));
+        result[1][i] = bb.shift(.se).bitOr(bb.shift(.sw));
     }
     break :blk result;
 };
