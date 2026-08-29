@@ -1,23 +1,3 @@
-pub fn perft(writer: *Io.Writer, position: thorn.Position, depth: usize, comptime root: bool) !u64 {
-    if (depth == 0) return 1;
-    var result: u64 = 0;
-    var moves: thorn.MoveList = .new();
-    thorn.movegen.all(&moves, &position);
-    if (depth == 1 and !root) return moves.len;
-    for (moves.constSlice()) |m| {
-        //try writer.print("{f}: ", .{m.toString(.classical)});
-        //try writer.flush();
-        const child_position = position.move(m);
-        //try writer.print("{f}\n", .{child_position});
-        //try writer.flush();
-        const child_result = try perft(writer, child_position, depth - 1, false);
-        result += child_result;
-        if (root) try writer.print("{f}: {}\n", .{ m.toString(.frc), child_result });
-        try writer.flush();
-    }
-    return result;
-}
-
 pub fn main(init: std.process.Init) !void {
     const arena: std.mem.Allocator = init.arena.allocator();
 
@@ -64,9 +44,7 @@ pub fn main(init: std.process.Init) !void {
         } else if (std.ascii.eqlIgnoreCase(cmd, "perft")) {
             const depth_str = it.next() orelse "1";
             const depth = std.fmt.parseUnsigned(usize, depth_str, 10) catch continue;
-            const result = try perft(stdout, position, depth, true);
-            try stdout.print("total: {}\n", .{result});
-            try stdout.flush();
+            try thorn.cmd.perft.run(io, stdout, &position, depth);
         } else if (std.ascii.eqlIgnoreCase(cmd, "quit")) {
             break;
         }

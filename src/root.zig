@@ -1,4 +1,5 @@
 pub const attacks = @import("attacks.zig");
+pub const cmd = @import("cmd.zig");
 pub const movegen = @import("movegen.zig");
 pub const util = @import("util.zig");
 pub const Move = @import("Move.zig");
