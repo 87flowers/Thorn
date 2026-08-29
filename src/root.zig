@@ -333,7 +333,7 @@ pub const Square = enum(u8) {
     test {
         try std.testing.expect(!Square.none.isSome());
         try std.testing.expect(Square.none.isNone());
-        try std.testing.expectEqual(fromFileAndRank(3, 4), parse("d5"));
+        try std.testing.expectEqual(fromFileAndRank(.d, .fifth), parse("d5"));
     }
 };
 
