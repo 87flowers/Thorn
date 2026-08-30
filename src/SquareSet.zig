@@ -45,6 +45,16 @@ pub const SquareSet = packed struct {
         return result;
     }
 
+    pub fn diagonalMask(sq: Square) SquareSet {
+        assert(sq.isSome());
+        return diagonal_table[sq.toIndex()];
+    }
+
+    pub fn antiDiagonalMask(sq: Square) SquareSet {
+        assert(sq.isSome());
+        return anti_diagonal_table[sq.toIndex()];
+    }
+
     // (a, b)
     pub fn rayBetween(a: Square, b: Square) SquareSet {
         assert(a.isSome() and b.isSome());
@@ -155,6 +165,26 @@ pub const SquareSet = packed struct {
     } {
         return .{ .remaining = self };
     }
+};
+
+const diagonal_table: [64]SquareSet = blk: {
+    @setEvalBranchQuota(100_000);
+    var result: [64]SquareSet = @splat(.empty);
+    for (0..64) |i| {
+        result[i].insert(.rayMask(.fromIndex(i), .ne));
+        result[i].insert(.rayMask(.fromIndex(i), .sw));
+    }
+    break :blk result;
+};
+
+const anti_diagonal_table: [64]SquareSet = blk: {
+    @setEvalBranchQuota(100_000);
+    var result: [64]SquareSet = @splat(.empty);
+    for (0..64) |i| {
+        result[i].insert(.rayMask(.fromIndex(i), .nw));
+        result[i].insert(.rayMask(.fromIndex(i), .se));
+    }
+    break :blk result;
 };
 
 const ray_between_table: [64][64]SquareSet = blk: {

@@ -58,17 +58,20 @@ fn generateMostMoves(moves: *MoveList, position: *const Position, valid_destinat
     const valid_empty = empty.bitAnd(valid_destinations);
     const valid_enemy = enemy.bitAnd(valid_destinations);
 
-    const pawn_ids = position.whichAre(stm, .p);
-    const non_pawn_ids = position.whichAre(stm, .none).bitOr(pawn_ids).bitOr(PieceSet.king).bitNot();
+    const officer_ids = position.whichAreOfficers(stm);
 
-    splat(moves, position, pawn_ids, valid_enemy.bitAnd(SquareSet.promo_zone), .cap_promo);
-    splat(moves, position, pawn_ids, valid_enemy.bitAndNot(SquareSet.promo_zone), .capture);
-    splat(moves, position, non_pawn_ids, valid_enemy, .capture);
-    splat(moves, position, non_pawn_ids, valid_empty, .normal);
+    splat(moves, position, officer_ids, valid_enemy, .capture);
+    splat(moves, position, officer_ids, valid_empty, .normal);
 
     switch (stm) {
-        .white => generatePawnPushes(moves, position, valid_destinations, .white),
-        .black => generatePawnPushes(moves, position, valid_destinations, .black),
+        .white => {
+            generatePawnCaptures(moves, position, valid_destinations, .white);
+            generatePawnPushes(moves, position, valid_destinations, .white);
+        },
+        .black => {
+            generatePawnCaptures(moves, position, valid_destinations, .black);
+            generatePawnPushes(moves, position, valid_destinations, .black);
+        },
     }
 }
 
@@ -89,6 +92,42 @@ fn splat(moves: *MoveList, position: *const Position, ids: PieceSet, valid_desti
                 moves.pushSet(from, to, .cap_promo_b);
             },
         }
+    }
+}
+
+fn generatePawnCaptures(moves: *MoveList, position: *const Position, valid_destinations: SquareSet, comptime stm: Color) void {
+    const king = position.kingSq(stm);
+    const enemy = position.colorSet(stm.invert());
+    const valid_enemy = enemy.bitAnd(valid_destinations);
+
+    const pinned = position.pinned;
+    const all_pawns = position.coloredPtypeSet(stm, .p);
+    const diag_dir, const anti_dir, const promoable_base, const promo_rank = switch (stm) {
+        .white => .{ Dir.ne, Dir.nw, Square.a7, 6 },
+        .black => .{ Dir.sw, Dir.se, Square.a2, 1 },
+    };
+
+    const diag_pawns = all_pawns.bitAndNot(pinned.bitAndNot(.diagonalMask(king))).bitAnd(valid_enemy.shift(diag_dir.flip()));
+    const anti_pawns = all_pawns.bitAndNot(pinned.bitAndNot(.antiDiagonalMask(king))).bitAnd(valid_enemy.shift(anti_dir.flip()));
+
+    const diag_cap = diag_pawns.bitAndNot(SquareSet.rankMask(promo_rank));
+    const anti_cap = anti_pawns.bitAndNot(SquareSet.rankMask(promo_rank));
+    const diag_promo = diag_pawns.readRank(promo_rank);
+    const anti_promo = anti_pawns.readRank(promo_rank);
+
+    if (!diag_cap.isEmpty()) moves.pushPawnCapture(diag_cap, diag_dir);
+    if (!anti_cap.isEmpty()) moves.pushPawnCapture(anti_cap, anti_dir);
+    if (diag_promo != 0) {
+        moves.pushPawnPromoCapture(promoable_base, diag_promo, diag_dir, .cap_promo_q);
+        moves.pushPawnPromoCapture(promoable_base, diag_promo, diag_dir, .cap_promo_n);
+        moves.pushPawnPromoCapture(promoable_base, diag_promo, diag_dir, .cap_promo_r);
+        moves.pushPawnPromoCapture(promoable_base, diag_promo, diag_dir, .cap_promo_b);
+    }
+    if (anti_promo != 0) {
+        moves.pushPawnPromoCapture(promoable_base, anti_promo, anti_dir, .cap_promo_q);
+        moves.pushPawnPromoCapture(promoable_base, anti_promo, anti_dir, .cap_promo_n);
+        moves.pushPawnPromoCapture(promoable_base, anti_promo, anti_dir, .cap_promo_r);
+        moves.pushPawnPromoCapture(promoable_base, anti_promo, anti_dir, .cap_promo_b);
     }
 }
 

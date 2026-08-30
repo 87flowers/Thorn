@@ -70,6 +70,7 @@ pub const PieceType = enum(u8) {
     k = 0b100000,
 
     pub const slider: u8 = 0b011100;
+    pub const officer: u8 = 0b011110;
 
     pub fn isSome(self: PieceType) bool {
         return self != .none;

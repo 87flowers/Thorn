@@ -93,6 +93,13 @@ pub fn whichAre(self: *const Position, color: Color, ptype: PieceType) PieceSet 
     return PieceSet.make(@bitCast(v == ptype.splat(16)));
 }
 
+pub fn whichAreOfficers(self: *const Position, color: Color) PieceSet {
+    const v: @Vector(16, u8) = @bitCast(self.piece_list_ptype[color.toIndex()]);
+    const needle: @Vector(16, u8) = @splat(PieceType.officer);
+    const zero: @Vector(16, u8) = @splat(0);
+    return PieceSet.make(@bitCast((v & needle) != zero));
+}
+
 pub fn whichAreSlider(self: *const Position, color: Color) PieceSet {
     const v: @Vector(16, u8) = @bitCast(self.piece_list_ptype[color.toIndex()]);
     const needle: @Vector(16, u8) = @splat(PieceType.slider);
