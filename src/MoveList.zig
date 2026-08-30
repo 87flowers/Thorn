@@ -19,30 +19,44 @@ pub fn push(self: *MoveList, from: Square, to: Square, flags: Move.Flags) void {
     self.len += 1;
 }
 
-pub fn pushSet(self: *MoveList, from: Square, to: SquareSet, comptime flags: Move.Flags) void {
+pub fn pushSets(self: *MoveList, from: Square, normal_to: SquareSet, cap_to: SquareSet) void {
     if (has_compress) {
-        const template0 = blk: {
-            var result: @Vector(32, u16) = undefined;
-            inline for (0..32) |i| result[i] = i << 6 | @intFromEnum(flags);
-            break :blk result;
-        };
-        const template1 = blk: {
-            var result: @Vector(32, u16) = undefined;
-            inline for (32..64) |i| result[i - 32] = i << 6 | @intFromEnum(flags);
-            break :blk result;
-        };
+        const to = normal_to.bitOr(cap_to);
+
+        const build_template = struct {
+            fn build_template(comptime start: u16, comptime flag: Move.Flags) @Vector(32, u16) {
+                var result: @Vector(32, u16) = undefined;
+                inline for (0..32) |i| result[i] = (i + start) << 6 | @intFromEnum(flag);
+                return result;
+            }
+        }.build_template;
+
+        const normal_template0 = build_template(0, .normal);
+        const normal_template1 = build_template(32, .normal);
+        const cap_template0 = build_template(0, .cap_normal);
+        const cap_template1 = build_template(32, .cap_normal);
+
+        const cap_m0: @Vector(32, bool) = @bitCast(@as(u32, @truncate(cap_to.raw)));
+        const cap_m1: @Vector(32, bool) = @bitCast(@as(u32, @truncate(cap_to.raw >> 32)));
+
+        const v0: @Vector(32, u16) = @select(u16, cap_m0, cap_template0, normal_template0);
+        const v1: @Vector(32, u16) = @select(u16, cap_m1, cap_template1, normal_template1);
         const other: @Vector(32, u16) = @splat(@intFromEnum(from));
+
         const m0: u32 = @truncate(to.raw);
         const m1: u32 = @truncate(to.raw >> 32);
-        const c0 = intrin.compress(m0, template0 | other);
-        const c1 = intrin.compress(m1, template1 | other);
+        const c0 = intrin.compress(m0, v0 | other);
+        const c1 = intrin.compress(m1, v1 | other);
+
         @memcpy(self.storage[self.len .. self.len + 32], @as([32]Move, @bitCast(c0))[0..32]);
         self.len += @popCount(m0);
         @memcpy(self.storage[self.len .. self.len + 32], @as([32]Move, @bitCast(c1))[0..32]);
         self.len += @popCount(m1);
     } else {
-        var iter = to.iter();
-        while (iter.next()) |sq| self.push(from, sq, flags);
+        var normal_iter = normal_to.iter();
+        while (normal_iter.next()) |sq| self.push(from, sq, .normal);
+        var cap_iter = cap_to.iter();
+        while (cap_iter.next()) |sq| self.push(from, sq, .cap_normal);
     }
 }
 

@@ -59,9 +59,14 @@ fn generateMostMoves(moves: *MoveList, position: *const Position, valid_destinat
     const valid_enemy = enemy.bitAnd(valid_destinations);
 
     const officer_ids = position.whichAreOfficers(stm);
+    const movable_ids = position.whichMaskedAttackTo(valid_destinations);
 
-    splat(moves, position, officer_ids, valid_enemy, .capture);
-    splat(moves, position, officer_ids, valid_empty, .normal);
+    var iter = officer_ids.bitAnd(movable_ids).iter();
+    while (iter.next()) |id| {
+        const from = position.whereIs(stm, id);
+        const to = position.masked_attack_set[id.toIndex()];
+        moves.pushSets(from, to.bitAnd(valid_empty), to.bitAnd(valid_enemy));
+    }
 
     switch (stm) {
         .white => {
@@ -72,26 +77,6 @@ fn generateMostMoves(moves: *MoveList, position: *const Position, valid_destinat
             generatePawnCaptures(moves, position, valid_destinations, .black);
             generatePawnPushes(moves, position, valid_destinations, .black);
         },
-    }
-}
-
-fn splat(moves: *MoveList, position: *const Position, ids: PieceSet, valid_destinations: SquareSet, comptime kind: enum { normal, capture, cap_promo }) void {
-    const stm = position.sideToMove();
-
-    var iter = ids.bitAnd(position.whichMaskedAttackTo(valid_destinations)).iter();
-    while (iter.next()) |id| {
-        const from = position.whereIs(stm, id);
-        const to = position.masked_attack_set[id.toIndex()].bitAnd(valid_destinations);
-        switch (kind) {
-            .normal => moves.pushSet(from, to, .normal),
-            .capture => moves.pushSet(from, to, .cap_normal),
-            .cap_promo => {
-                moves.pushSet(from, to, .cap_promo_q);
-                moves.pushSet(from, to, .cap_promo_n);
-                moves.pushSet(from, to, .cap_promo_r);
-                moves.pushSet(from, to, .cap_promo_b);
-            },
-        }
     }
 }
 
@@ -176,8 +161,7 @@ fn generateKingMoves(moves: *MoveList, position: *const Position) void {
     const king = position.kingSq(stm);
     const safe_attacks = position.masked_attack_set[0].bitAndNot(danger);
 
-    moves.pushSet(king, safe_attacks.bitAnd(enemy), .cap_normal);
-    moves.pushSet(king, safe_attacks.bitAnd(empty), .normal);
+    moves.pushSets(king, safe_attacks.bitAnd(empty), safe_attacks.bitAnd(enemy));
 }
 
 const thorn = @import("root.zig");
