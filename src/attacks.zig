@@ -1,12 +1,13 @@
 pub fn ptype(pt: PieceType, occ: SquareSet, sq: Square, color: Color) SquareSet {
-    return switch (pt) {
-        .none => .empty,
-        .p => pawn(sq, color),
-        .n => knight(sq),
-        .b => bishop(occ, sq),
-        .r => rook(occ, sq),
-        .q => queen(occ, sq),
-        .k => king(sq),
+    return switch (pt.toIndex()) {
+        // PieceType.none.toIndex() => .empty,
+        PieceType.p.toIndex() => pawn(sq, color),
+        PieceType.n.toIndex() => knight(sq),
+        PieceType.b.toIndex() => bishop(occ, sq),
+        PieceType.r.toIndex() => rook(occ, sq),
+        PieceType.q.toIndex() => queen(occ, sq),
+        PieceType.k.toIndex() => king(sq),
+        else => unreachable,
     };
 }
 
