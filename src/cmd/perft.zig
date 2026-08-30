@@ -4,7 +4,8 @@ pub fn run(io: std.Io, writer: *std.Io.Writer, position: *const Position, depth:
     var moves: thorn.MoveList = .new();
     thorn.movegen.all(&moves, position);
     for (moves.constSlice()) |m| {
-        const child_position = position.move(m);
+        var child_position: Position = undefined;
+        position.move(&child_position, m);
         const child_result = core(&child_position, depth - 1);
         result += child_result;
 
@@ -28,7 +29,8 @@ pub fn core(position: *const Position, depth: usize) u64 {
     thorn.movegen.all(&moves, position);
     if (depth == 1) return moves.len;
     for (moves.constSlice()) |m| {
-        const child_position = position.move(m);
+        var child_position: Position = undefined;
+        position.move(&child_position, m);
         result += core(&child_position, depth - 1);
     }
     return result;

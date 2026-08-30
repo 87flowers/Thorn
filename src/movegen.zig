@@ -75,7 +75,7 @@ fn generateMostMoves(moves: *MoveList, position: *const Position, valid_destinat
     }
 }
 
-fn splat(moves: *MoveList, position: *const Position, ids: PieceSet, valid_destinations: SquareSet, kind: enum { normal, capture, cap_promo }) void {
+fn splat(moves: *MoveList, position: *const Position, ids: PieceSet, valid_destinations: SquareSet, comptime kind: enum { normal, capture, cap_promo }) void {
     const stm = position.sideToMove();
 
     var iter = ids.bitAnd(position.whichMaskedAttackTo(valid_destinations)).iter();
