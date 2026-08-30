@@ -607,6 +607,11 @@ fn recalculateAttacks(self: *Position) void {
 fn recalculateDanger(self: *Position) void {
     const stm = self.sideToMove();
 
+    self.danger = .empty;
+    for (0..16) |i| {
+        self.danger = self.danger.bitOr(self.attack_set[stm.invert().toIndex()][i]);
+    }
+
     const king = self.kingSq(stm);
     const friend = self.colorSet(stm);
     const enemy = self.colorSet(stm.invert());
@@ -622,7 +627,10 @@ fn recalculateDanger(self: *Position) void {
         const pin_ray = SquareSet.rayExclusiveInclusive(king, sq);
         const blockers = pin_ray.bitAnd(friend);
         switch (blockers.popcount()) {
-            0 => self.checkers.write(sq, true),
+            0 => {
+                self.checkers.write(sq, true);
+                self.danger.insert(.rayPast(sq, king));
+            },
             1 => {
                 const id = self.id_mailbox[blockers.lsb().toIndex()];
                 self.masked_attack_set[id.toIndex()].applyMask(pin_ray);
@@ -630,16 +638,6 @@ fn recalculateDanger(self: *Position) void {
             },
             else => {},
         }
-    }
-
-    // TODO: Vectorize
-    self.danger = .empty;
-    for (0..16) |i| {
-        self.danger = self.danger.bitOr(self.attack_set[stm.invert().toIndex()][i]);
-    }
-    var checkers_iter = self.checkers.iter();
-    while (checkers_iter.next()) |checker| {
-        self.danger = self.danger.bitOr(SquareSet.rayPast(checker, king));
     }
 
     // TODO: Consider doing checkers as PieceSet instead of SquareSet
