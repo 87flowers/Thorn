@@ -132,6 +132,94 @@ pub fn pushPawnBody(self: *MoveList, from: u32, color: Color) void {
     }
 }
 
+pub fn pushPawnCapture(self: *MoveList, from: SquareSet, comptime dir: Dir) void {
+    const offset = switch (dir) {
+        .ne => 9,
+        .nw => 7,
+        .se => -7,
+        .sw => -9,
+        else => unreachable,
+    };
+    const mask = switch (dir) {
+        .ne, .se => ~SquareSet.fileMask(.h).raw,
+        .nw, .sw => ~SquareSet.fileMask(.a).raw,
+        else => unreachable,
+    };
+    var set = from.raw & mask;
+    if (has_compress) {
+        const template0 = blk: {
+            var result: @Vector(32, u16) = undefined;
+            inline for (0..32) |i| result[i] = @as(u16, i) | sqOffset(i, offset) << 6 | @intFromEnum(Move.Flags.cap_normal);
+            break :blk result;
+        };
+        const template1 = blk: {
+            var result: @Vector(32, u16) = undefined;
+            inline for (32..64) |i| result[i - 32] = @as(u16, i) | sqOffset(i, offset) << 6 | @intFromEnum(Move.Flags.cap_normal);
+            break :blk result;
+        };
+        const m0: u32 = @truncate(set);
+        const m1: u32 = @truncate(set >> 32);
+        const c0 = simd.compress(m0, template0);
+        const c1 = simd.compress(m1, template1);
+        @memcpy(self.storage[self.len .. self.len + 32], @as([32]Move, @bitCast(c0))[0..32]);
+        self.len += @popCount(m0);
+        @memcpy(self.storage[self.len .. self.len + 32], @as([32]Move, @bitCast(c1))[0..32]);
+        self.len += @popCount(m1);
+    } else {
+        while (set != 0) : (set &= set - 1) {
+            const f: i32 = @as(i32, @ctz(set));
+            const t: i32 = f + offset;
+            self.push(Square.fromIndex(@intCast(f)), Square.fromIndex(@intCast(t)), .cap_normal);
+        }
+    }
+}
+
+pub fn pushPawnPromoCapture(self: *MoveList, base: Square, from: u8, comptime dir: Dir, comptime flags: Move.Flags) void {
+    const offset = switch (dir) {
+        .ne => 9,
+        .nw => 7,
+        .se => -7,
+        .sw => -9,
+        else => unreachable,
+    };
+    const mask = switch (dir) {
+        .ne, .se => 0b01111111,
+        .nw, .sw => 0b11111110,
+        else => unreachable,
+    };
+    var set = from & mask;
+    if (has_compress) {
+        const template = comptime blk: {
+            var result: @Vector(8, u16) = undefined;
+            switch (dir) {
+                .ne, .nw => {
+                    for (48..56) |i| result[i - 48] = @as(u16, i) | sqOffset(i, offset) << 6 | @intFromEnum(flags);
+                },
+                .se, .sw => {
+                    for (8..16) |i| result[i - 8] = @as(u16, i) | sqOffset(i, offset) << 6 | @intFromEnum(flags);
+                },
+                else => unreachable,
+            }
+            break :blk result;
+        };
+        const c = simd.compress(from, template);
+        @memcpy(self.storage[self.len .. self.len + 8], @as([8]Move, @bitCast(c))[0..8]);
+        self.len += @popCount(from);
+    } else {
+        while (set != 0) : (set &= set - 1) {
+            const f: i32 = @intFromEnum(base) + @as(i32, @ctz(set));
+            const t: i32 = f + offset;
+            self.push(Square.fromIndex(@intCast(f)), Square.fromIndex(@intCast(t)), flags);
+        }
+    }
+}
+
+fn sqOffset(i: u16, offset: i32) u16 {
+    const sum = @as(i32, i) + offset;
+    const sum_unsigned: u32 = @bitCast(sum);
+    return @truncate(sum_unsigned);
+}
+
 const has_compress = @import("builtin").cpu.has(.x86, .avx512vbmi2);
 
 const MoveList = @This();
@@ -140,6 +228,7 @@ const assert = std.debug.assert;
 const thorn = @import("root.zig");
 const simd = thorn.util.simd;
 const Color = thorn.Color;
+const Dir = thorn.Dir;
 const Move = thorn.Move;
 const Square = thorn.Square;
 const SquareSet = thorn.SquareSet;
