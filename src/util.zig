@@ -1,2 +1,2 @@
-pub const simd = @import("util/simd.zig");
+pub const intrin = @import("util/intrin.zig");
 pub const StaticVec = @import("util/StaticVec.zig").StaticVec;

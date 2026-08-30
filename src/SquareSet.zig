@@ -45,6 +45,17 @@ pub const SquareSet = packed struct {
         return result;
     }
 
+    pub fn rayMaskExceptLast(start: Square, dir: Dir) SquareSet {
+        assert(start.isSome());
+        var bb = start.toSet().shift(dir);
+        var result = SquareSet.empty;
+        while (!bb.shift(dir).isEmpty()) {
+            result = result.bitOr(bb);
+            bb = bb.shift(dir);
+        }
+        return result;
+    }
+
     pub fn diagonalMask(sq: Square) SquareSet {
         assert(sq.isSome());
         return diagonal_table[sq.toIndex()];

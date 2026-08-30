@@ -34,8 +34,8 @@ pub fn pushSet(self: *MoveList, from: Square, to: SquareSet, comptime flags: Mov
         const other: @Vector(32, u16) = @splat(@intFromEnum(from));
         const m0: u32 = @truncate(to.raw);
         const m1: u32 = @truncate(to.raw >> 32);
-        const c0 = simd.compress(m0, template0 | other);
-        const c1 = simd.compress(m1, template1 | other);
+        const c0 = intrin.compress(m0, template0 | other);
+        const c1 = intrin.compress(m1, template1 | other);
         @memcpy(self.storage[self.len .. self.len + 32], @as([32]Move, @bitCast(c0))[0..32]);
         self.len += @popCount(m0);
         @memcpy(self.storage[self.len .. self.len + 32], @as([32]Move, @bitCast(c1))[0..32]);
@@ -88,7 +88,7 @@ pub fn pushPawnRank(self: *MoveList, base: Square, from: u8, comptime offset: i8
                 break :blk result;
             },
         };
-        const c = simd.compress(from, template);
+        const c = intrin.compress(from, template);
         @memcpy(self.storage[self.len .. self.len + 8], @as([8]Move, @bitCast(c))[0..8]);
         self.len += @popCount(from);
     } else {
@@ -115,7 +115,7 @@ pub fn pushPawnBody(self: *MoveList, from: u32, color: Color) void {
                 break :blk result;
             },
         };
-        const c = simd.compress(from, template);
+        const c = intrin.compress(from, template);
         @memcpy(self.storage[self.len .. self.len + 32], @as([32]Move, @bitCast(c))[0..32]);
         self.len += @popCount(from);
     } else {
@@ -159,8 +159,8 @@ pub fn pushPawnCapture(self: *MoveList, from: SquareSet, comptime dir: Dir) void
         };
         const m0: u32 = @truncate(set);
         const m1: u32 = @truncate(set >> 32);
-        const c0 = simd.compress(m0, template0);
-        const c1 = simd.compress(m1, template1);
+        const c0 = intrin.compress(m0, template0);
+        const c1 = intrin.compress(m1, template1);
         @memcpy(self.storage[self.len .. self.len + 32], @as([32]Move, @bitCast(c0))[0..32]);
         self.len += @popCount(m0);
         @memcpy(self.storage[self.len .. self.len + 32], @as([32]Move, @bitCast(c1))[0..32]);
@@ -202,7 +202,7 @@ pub fn pushPawnPromoCapture(self: *MoveList, base: Square, from: u8, comptime di
             }
             break :blk result;
         };
-        const c = simd.compress(from, template);
+        const c = intrin.compress(from, template);
         @memcpy(self.storage[self.len .. self.len + 8], @as([8]Move, @bitCast(c))[0..8]);
         self.len += @popCount(from);
     } else {
@@ -226,7 +226,7 @@ const MoveList = @This();
 const std = @import("std");
 const assert = std.debug.assert;
 const thorn = @import("root.zig");
-const simd = thorn.util.simd;
+const intrin = thorn.util.intrin;
 const Color = thorn.Color;
 const Dir = thorn.Dir;
 const Move = thorn.Move;
