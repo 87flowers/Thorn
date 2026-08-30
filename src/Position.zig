@@ -1,10 +1,5 @@
 attack_set: [2][16]SquareSet,
 
-masked_attack_set: [16]SquareSet,
-danger: SquareSet,
-pinned: SquareSet,
-checkers: SquareSet,
-
 piece_mailbox: [64]Piece,
 id_mailbox: [64]PieceId,
 
@@ -20,6 +15,11 @@ ply_since_null: u16,
 ply: u16,
 
 castling: Castling,
+
+masked_attack_set: [16]SquareSet,
+danger: SquareSet,
+pinned: SquareSet,
+checkers: SquareSet,
 
 pub const startpos = blk: {
     @setEvalBranchQuota(100_000);
@@ -147,8 +147,8 @@ fn isCastleLegalHelper(self: *const Position, rook: Square, rook_dst: File, king
     return rook_ray.bitAndNot(clear).isEmpty() and king_ray.bitAndNot(clear).isEmpty() and king_ray.bitAnd(danger).isEmpty() and !self.pinned.read(rook);
 }
 
-pub fn move(self: *const Position, m: Move) Position {
-    var new_pos = self.*;
+pub fn move(self: *const Position, new_pos: *Position, m: Move) void {
+    new_pos.* = self.*;
     new_pos.masked_attack_set = @splat(.empty);
     new_pos.danger = .empty;
     new_pos.pinned = .empty;
@@ -340,8 +340,6 @@ pub fn move(self: *const Position, m: Move) Position {
     new_pos.ply += 1;
 
     new_pos.recalculateDanger();
-
-    return new_pos;
 }
 
 fn removePiece(self: *Position, sq: Square, piece: Piece, id: PieceId) void {

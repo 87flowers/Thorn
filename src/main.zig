@@ -63,7 +63,9 @@ const Uci = struct {
             if (std.ascii.eqlIgnoreCase(it.next() orelse "", "moves")) {
                 while (it.next()) |move_str| {
                     const m = thorn.Move.parse(move_str, &self.position) catch break;
-                    self.position = self.position.move(m);
+                    var next_pos: thorn.Position = undefined;
+                    self.position.move(&next_pos, m);
+                    self.position = next_pos;
                 }
             }
         } else if (std.ascii.eqlIgnoreCase(cmd, "perft")) {
