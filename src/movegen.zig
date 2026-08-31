@@ -3,6 +3,7 @@ pub fn all(moves: *MoveList, position: *const Position) void {
 }
 
 fn generateMoves(moves: *MoveList, position: *const Position) void {
+    @constCast(position).calculateDanger();
     const checkers = position.checkers();
     switch (checkers.popcount()) {
         0 => {

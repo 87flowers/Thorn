@@ -16,6 +16,7 @@ ply: u16,
 
 castling: Castling,
 
+precalc: bool,
 masked_attack_set: [16]SquareSet,
 danger: SquareSet,
 pinned: SquareSet,
@@ -157,6 +158,7 @@ fn isCastleLegalHelper(self: *const Position, rook: Square, rook_dst: File, king
 
 pub fn move(self: *const Position, new_pos: *Position, m: Move) void {
     new_pos.* = self.*;
+    new_pos.precalc = false;
 
     new_pos.enpassant = .none;
 
@@ -342,8 +344,6 @@ pub fn move(self: *const Position, new_pos: *Position, m: Move) void {
     }
 
     new_pos.ply += 1;
-
-    new_pos.recalculateDanger();
 }
 
 fn removePiece(self: *Position, sq: Square, piece: Piece, id: PieceId) void {
@@ -407,9 +407,6 @@ pub fn parse(str: []const u8) !Position {
 pub fn parseParts(board_str: []const u8, color_str: []const u8, castle_str: []const u8, enpassant_str: []const u8, fifty_move_clock_str: []const u8, turns_str: []const u8) !Position {
     var position: Position = .{
         .attack_set = @splat(@splat(.empty)),
-        .masked_attack_set = @splat(.empty),
-        .danger = .empty,
-        .pinned = .empty,
         .piece_mailbox = @splat(.none),
         .id_mailbox = @splat(.none),
         .color_set = @splat(.empty),
@@ -421,6 +418,10 @@ pub fn parseParts(board_str: []const u8, color_str: []const u8, castle_str: []co
         .ply_since_null = 0,
         .ply = 0,
         .castling = Castling.empty,
+        .precalc = false,
+        .masked_attack_set = @splat(.empty),
+        .danger = .empty,
+        .pinned = .empty,
     };
 
     // Parse board
@@ -536,7 +537,7 @@ pub fn parseParts(board_str: []const u8, color_str: []const u8, castle_str: []co
     position.ply = (turns - 1) * 2 + @as(u16, @intCast(stm.toIndex()));
 
     position.recalculateAttacks();
-    position.recalculateDanger();
+    position.calculateDanger();
 
     return position;
 }
@@ -607,7 +608,10 @@ fn recalculateAttacks(self: *Position) void {
     }
 }
 
-fn recalculateDanger(self: *Position) void {
+pub fn calculateDanger(self: *Position) void {
+    if (self.precalc) return;
+    self.precalc = true;
+
     const stm = self.sideToMove();
 
     self.danger = .empty;
