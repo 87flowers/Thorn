@@ -240,9 +240,8 @@ pub fn move(self: *const Position, new_pos: *Position, m: Move) void {
             new_pos.fifty_move_clock += 1;
 
             new_pos.updateAttacks(stm, king_id, .k, king_dst);
-            new_pos.updateAttacks(stm, rook_id, .r, rook_dst);
-            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{ king_src, rook_src, king_dst, rook_dst })));
-            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{ king_src, rook_src, king_dst, rook_dst })));
+            // Implicit new_pos.updateAttacks(stm, rook_id, .r, rook_dst); in next line:
+            new_pos.updateSliderAttacks(stm, self.whichAttackTo(stm, .set(.{ king_src, rook_src, king_dst, rook_dst })));
         },
         .castle_hside => {
             const king_src = from;
@@ -259,9 +258,8 @@ pub fn move(self: *const Position, new_pos: *Position, m: Move) void {
             new_pos.fifty_move_clock += 1;
 
             new_pos.updateAttacks(stm, king_id, .k, king_dst);
-            new_pos.updateAttacks(stm, rook_id, .r, rook_dst);
-            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{ king_src, rook_src, king_dst, rook_dst })));
-            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{ king_src, rook_src, king_dst, rook_dst })));
+            // Implicit new_pos.updateAttacks(stm, rook_id, .r, rook_dst); in next line:
+            new_pos.updateSliderAttacks(stm, self.whichAttackTo(stm, .set(.{ king_src, rook_src, king_dst, rook_dst })));
         },
         .promo_n => {
             new_pos.removePiece(from, src_piece, src_id);
