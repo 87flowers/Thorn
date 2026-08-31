@@ -153,9 +153,6 @@ fn isCastleLegalHelper(self: *const Position, rook: Square, rook_dst: File, king
 
 pub fn move(self: *const Position, new_pos: *Position, m: Move) void {
     new_pos.* = self.*;
-    new_pos.masked_attack_set = @splat(.empty);
-    new_pos.danger = .empty;
-    new_pos.pinned = .empty;
 
     new_pos.enpassant = .none;
 
