@@ -49,10 +49,14 @@ pub fn pushSets(self: *MoveList, from: Square, normal_to: SquareSet, cap_to: Squ
         const c0 = simd.compress(m0, v0 | other);
         const c1 = simd.compress(m1, v1 | other);
 
-        @memcpy(self.storage[self.len .. self.len + 32], @as([32]Move, @bitCast(c0))[0..32]);
-        self.len += @popCount(m0);
-        @memcpy(self.storage[self.len .. self.len + 32], @as([32]Move, @bitCast(c1))[0..32]);
-        self.len += @popCount(m1);
+        if (m0 != 0) {
+            @memcpy(self.storage[self.len .. self.len + 32], @as([32]Move, @bitCast(c0))[0..32]);
+            self.len += @popCount(m0);
+        }
+        if (m1 != 0) {
+            @memcpy(self.storage[self.len .. self.len + 32], @as([32]Move, @bitCast(c1))[0..32]);
+            self.len += @popCount(m1);
+        }
     } else {
         var normal_iter = normal_to.iter();
         while (normal_iter.next()) |sq| self.push(from, sq, .normal);
@@ -176,10 +180,14 @@ pub fn pushPawnCapture(self: *MoveList, from: SquareSet, comptime dir: Dir) void
         const m1: u32 = @truncate(set >> 32);
         const c0 = simd.compress(m0, template0);
         const c1 = simd.compress(m1, template1);
-        @memcpy(self.storage[self.len .. self.len + 32], @as([32]Move, @bitCast(c0))[0..32]);
-        self.len += @popCount(m0);
-        @memcpy(self.storage[self.len .. self.len + 32], @as([32]Move, @bitCast(c1))[0..32]);
-        self.len += @popCount(m1);
+        if (m0 != 0) {
+            @memcpy(self.storage[self.len .. self.len + 32], @as([32]Move, @bitCast(c0))[0..32]);
+            self.len += @popCount(m0);
+        }
+        if (m1 != 0) {
+            @memcpy(self.storage[self.len .. self.len + 32], @as([32]Move, @bitCast(c1))[0..32]);
+            self.len += @popCount(m1);
+        }
     } else {
         while (set != 0) : (set &= set - 1) {
             const f: i32 = @as(i32, @ctz(set));
