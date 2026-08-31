@@ -156,7 +156,7 @@ fn isCastleLegalHelper(self: *const Position, rook: Square, rook_dst: File, king
     return rook_ray.bitAndNot(clear).isEmpty() and king_ray.bitAndNot(clear).isEmpty() and king_ray.bitAnd(danger).isEmpty() and !self.pinned.read(rook);
 }
 
-pub fn move(self: *const Position, new_pos: *Position, m: Move) void {
+pub fn move(noalias self: *const Position, noalias new_pos: *Position, m: Move) void {
     new_pos.* = self.*;
     new_pos.precalc = false;
 
