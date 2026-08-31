@@ -211,7 +211,8 @@ pub const PieceId = enum(u8) {
     }
 
     pub fn toSet(self: PieceId) PieceSet {
-        return PieceSet.make(1 << @intFromEnum(self));
+        assert(self.isSome());
+        return PieceSet.make(@as(u16, 1) << @intCast(@intFromEnum(self)));
     }
 };
 

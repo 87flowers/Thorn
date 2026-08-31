@@ -178,9 +178,12 @@ pub fn move(self: *const Position, new_pos: *Position, m: Move) void {
             if (src_piece.ptype() == .k) new_pos.castling.clear(stm);
             new_pos.fifty_move_clock = if (src_piece.ptype() == .p) 0 else new_pos.fifty_move_clock + 1;
 
+            const white_excl: PieceSet = if (stm == .white) src_id.toSet() else .empty;
+            const black_excl: PieceSet = if (stm == .black) src_id.toSet() else .empty;
+
             new_pos.updateAttacks(stm, src_id, src_piece.ptype(), to);
-            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{ from, to })));
-            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{ from, to })));
+            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{ from, to })).bitAndNot(white_excl));
+            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{ from, to })).bitAndNot(black_excl));
         },
         .cap_normal => {
             new_pos.removePiece(from, src_piece, src_id);
@@ -191,10 +194,13 @@ pub fn move(self: *const Position, new_pos: *Position, m: Move) void {
             if (src_piece.ptype() == .k) new_pos.castling.clear(stm);
             new_pos.fifty_move_clock = 0;
 
+            const white_excl: PieceSet = if (stm == .white) src_id.toSet() else dst_id.toSet();
+            const black_excl: PieceSet = if (stm == .black) src_id.toSet() else dst_id.toSet();
+
             new_pos.updateAttacks(stm, src_id, src_piece.ptype(), to);
             new_pos.removeAttacks(stm.invert(), dst_id);
-            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{from})));
-            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{from})));
+            new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{from})).bitAndNot(white_excl));
+            new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{from})).bitAndNot(black_excl));
         },
         .double_push => {
             new_pos.removePiece(from, src_piece, src_id);
