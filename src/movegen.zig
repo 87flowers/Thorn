@@ -150,8 +150,8 @@ fn generatePawnPushes(moves: *MoveList, position: *const Position, valid_destina
 fn generateCastling(moves: *MoveList, position: *const Position) void {
     const stm = position.sideToMove();
     if (!position.castling.hasColor(stm)) return;
-    if (position.isCastleLegal(.a)) moves.push(position.kingSq(stm), position.castling.read(stm, .a), .castle_aside);
-    if (position.isCastleLegal(.h)) moves.push(position.kingSq(stm), position.castling.read(stm, .h), .castle_hside);
+    if (position.isCastleLegalAssumeNoCheck(.a)) moves.push(position.kingSq(stm), position.castling.read(stm, .a), .castle_aside);
+    if (position.isCastleLegalAssumeNoCheck(.h)) moves.push(position.kingSq(stm), position.castling.read(stm, .h), .castle_hside);
 }
 
 fn generateKingMoves(moves: *MoveList, position: *const Position) void {

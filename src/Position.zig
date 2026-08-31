@@ -126,10 +126,14 @@ pub fn checkers(self: *const Position) PieceSet {
 }
 
 pub fn isCastleLegal(self: *const Position, comptime side: Castling.Side) bool {
+    return self.checkers().isEmpty() and self.isCastleLegalAssumeNoCheck(side);
+}
+
+pub fn isCastleLegalAssumeNoCheck(self: *const Position, comptime side: Castling.Side) bool {
     switch (self.sideToMove()) {
         inline else => |stm| {
             const rook = self.castling.read(stm, side);
-            return rook.isSome() and self.checkers().isEmpty() and switch (side) {
+            return rook.isSome() and switch (side) {
                 .a => self.isCastleLegalHelper(rook, .d, .c),
                 .h => self.isCastleLegalHelper(rook, .f, .g),
             };
