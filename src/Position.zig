@@ -19,7 +19,6 @@ castling: Castling,
 masked_attack_set: [16]SquareSet,
 danger: SquareSet,
 pinned: SquareSet,
-checkers: SquareSet,
 
 pub const startpos = blk: {
     @setEvalBranchQuota(100_000);
@@ -121,11 +120,16 @@ pub fn whichMaskedAttackTo(self: *const Position, dst: SquareSet) PieceSet {
     return PieceSet.make(@bitCast((v & bb) != zero));
 }
 
+pub fn checkers(self: *const Position) PieceSet {
+    const stm = self.sideToMove();
+    return self.whichAttackTo(stm.invert(), self.kingSq(stm).toSet());
+}
+
 pub fn isCastleLegal(self: *const Position, comptime side: Castling.Side) bool {
     switch (self.sideToMove()) {
         inline else => |stm| {
             const rook = self.castling.read(stm, side);
-            return rook.isSome() and self.checkers.isEmpty() and switch (side) {
+            return rook.isSome() and self.checkers().isEmpty() and switch (side) {
                 .a => self.isCastleLegalHelper(rook, .d, .c),
                 .h => self.isCastleLegalHelper(rook, .f, .g),
             };
@@ -152,7 +156,6 @@ pub fn move(self: *const Position, new_pos: *Position, m: Move) void {
     new_pos.masked_attack_set = @splat(.empty);
     new_pos.danger = .empty;
     new_pos.pinned = .empty;
-    new_pos.checkers = .empty;
 
     new_pos.enpassant = .none;
 
@@ -406,7 +409,6 @@ pub fn parseParts(board_str: []const u8, color_str: []const u8, castle_str: []co
         .masked_attack_set = @splat(.empty),
         .danger = .empty,
         .pinned = .empty,
-        .checkers = .empty,
         .piece_mailbox = @splat(.none),
         .id_mailbox = @splat(.none),
         .color_set = @splat(.empty),
@@ -607,6 +609,11 @@ fn recalculateAttacks(self: *Position) void {
 fn recalculateDanger(self: *Position) void {
     const stm = self.sideToMove();
 
+    self.danger = .empty;
+    for (0..16) |i| {
+        self.danger = self.danger.bitOr(self.attack_set[stm.invert().toIndex()][i]);
+    }
+
     const king = self.kingSq(stm);
     const friend = self.colorSet(stm);
     const enemy = self.colorSet(stm.invert());
@@ -614,7 +621,6 @@ fn recalculateDanger(self: *Position) void {
     const orthogonal = enemy.bitAnd(self.ptypeSet(.r).bitOr(self.ptypeSet(.q))).bitAnd(attacks.rook(enemy, king));
 
     self.pinned = .empty;
-    self.checkers = .empty;
     self.masked_attack_set = self.attack_set[stm.toIndex()];
 
     var potential_pinners = diagonal.bitOr(orthogonal).iter();
@@ -622,7 +628,9 @@ fn recalculateDanger(self: *Position) void {
         const pin_ray = SquareSet.rayExclusiveInclusive(king, sq);
         const blockers = pin_ray.bitAnd(friend);
         switch (blockers.popcount()) {
-            0 => self.checkers.write(sq, true),
+            0 => {
+                self.danger.insert(.rayPast(sq, king));
+            },
             1 => {
                 const id = self.id_mailbox[blockers.lsb().toIndex()];
                 self.masked_attack_set[id.toIndex()].applyMask(pin_ray);
@@ -631,22 +639,6 @@ fn recalculateDanger(self: *Position) void {
             else => {},
         }
     }
-
-    // TODO: Vectorize
-    self.danger = .empty;
-    for (0..16) |i| {
-        self.danger = self.danger.bitOr(self.attack_set[stm.invert().toIndex()][i]);
-    }
-    var checkers_iter = self.checkers.iter();
-    while (checkers_iter.next()) |checker| {
-        self.danger = self.danger.bitOr(SquareSet.rayPast(checker, king));
-    }
-
-    // TODO: Consider doing checkers as PieceSet instead of SquareSet
-    // Alternatively consider implementing isInCheck as a danger read and checkerCount as a count.
-    // This is done after the self.danger bit because these checkers are not sliders and thus should not have danger extension.
-    self.checkers.insert(attacks.knight(king).bitAnd(self.coloredPtypeSet(stm.invert(), .n)));
-    self.checkers.insert(attacks.pawn(king, stm).bitAnd(self.coloredPtypeSet(stm.invert(), .p)));
 }
 
 pub const Castling = struct {

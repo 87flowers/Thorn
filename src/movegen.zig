@@ -3,7 +3,8 @@ pub fn all(moves: *MoveList, position: *const Position) void {
 }
 
 fn generateMoves(moves: *MoveList, position: *const Position) void {
-    switch (position.checkers.popcount()) {
+    const checkers = position.checkers();
+    switch (checkers.popcount()) {
         0 => {
             generateEnpassant(moves, position);
             generateMostMoves(moves, position, SquareSet.all);
@@ -11,10 +12,11 @@ fn generateMoves(moves: *MoveList, position: *const Position) void {
             generateKingMoves(moves, position);
         },
         1 => {
-            const checker = position.checkers.lsb();
-            const king = position.kingSq(position.sideToMove());
-            if (position.ptypeAt(checker) == .p) generateEnpassant(moves, position);
-            generateMostMoves(moves, position, SquareSet.rayExclusiveInclusive(king, checker));
+            const checker = checkers.lsb();
+            const stm = position.sideToMove();
+            const king = position.kingSq(stm);
+            if (position.whatIs(stm.invert(), checker) == .p) generateEnpassant(moves, position);
+            generateMostMoves(moves, position, SquareSet.rayExclusiveInclusive(king, position.whereIs(stm.invert(), checker)));
             generateKingMoves(moves, position);
         },
         else => generateKingMoves(moves, position),
