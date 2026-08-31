@@ -1,15 +1,18 @@
-pub fn run(io: std.Io, writer: *std.Io.Writer, position: *const Position, depth: usize) !void {
+pub fn run(io: std.Io, writer: *std.Io.Writer, position: *const Position, depth: usize, comptime semibulk: bool) !void {
     var timer = std.Io.Timestamp.now(io, .awake);
     var result: u64 = 0;
     var moves: thorn.MoveList = .new();
     thorn.movegen.all(&moves, position);
     for (moves.constSlice()) |m| {
+        try writer.print("{f}: ", .{m.toString(.frc)});
+        try writer.flush();
+
         var child_position: Position = undefined;
         position.move(&child_position, m);
-        const child_result = core(&child_position, depth - 1);
+        const child_result = core(&child_position, depth - 1, semibulk);
         result += child_result;
 
-        try writer.print("{f}: {}\n", .{ m.toString(.frc), child_result });
+        try writer.print("{}\n", .{child_result});
         try writer.flush();
     }
     const elapsed: f64 = @floatFromInt(timer.untilNow(io, .awake).toNanoseconds());
@@ -22,16 +25,16 @@ pub fn run(io: std.Io, writer: *std.Io.Writer, position: *const Position, depth:
     try writer.flush();
 }
 
-pub fn core(position: *const Position, depth: usize) u64 {
+pub fn core(position: *const Position, depth: usize, comptime semibulk: bool) u64 {
     if (depth == 0) return 1;
     var result: u64 = 0;
     var moves: thorn.MoveList = .new();
     thorn.movegen.all(&moves, position);
-    if (depth == 1) return moves.len;
+    if (depth == 1 and semibulk) return moves.len;
     for (moves.constSlice()) |m| {
         var child_position: Position = undefined;
         position.move(&child_position, m);
-        result += core(&child_position, depth - 1);
+        result += core(&child_position, depth - 1, semibulk);
     }
     return result;
 }

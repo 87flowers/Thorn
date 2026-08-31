@@ -86,7 +86,11 @@ pub const PieceType = enum(u8) {
     }
 
     pub fn isSlider(self: PieceType) bool {
-        return (@intFromEnum(self) & 0b011100) != 0;
+        return (@intFromEnum(self) & slider) != 0;
+    }
+
+    pub fn isOfficer(self: PieceType) bool {
+        return (@intFromEnum(self) & officer) != 0;
     }
 
     pub fn toChar(self: PieceType) u8 {

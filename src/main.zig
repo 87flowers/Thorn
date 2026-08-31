@@ -71,7 +71,16 @@ const Uci = struct {
         } else if (std.ascii.eqlIgnoreCase(cmd, "perft")) {
             const depth_str = it.next() orelse "1";
             const depth = std.fmt.parseUnsigned(usize, depth_str, 10) catch return;
-            try thorn.cmd.perft.run(self.io, self.writer, &self.position, depth);
+            const bulk_str = it.next() orelse "bulk";
+            const bulk = if (std.ascii.eqlIgnoreCase(bulk_str, "bulk"))
+                true
+            else if (std.ascii.eqlIgnoreCase(bulk_str, "nonbulk") or std.ascii.eqlIgnoreCase(bulk_str, "nobulk"))
+                false
+            else
+                return;
+            switch (bulk) {
+                inline else => |b| try thorn.cmd.perft.run(self.io, self.writer, &self.position, depth, b),
+            }
         } else if (std.ascii.eqlIgnoreCase(cmd, "quit")) {
             std.process.exit(0);
         }
