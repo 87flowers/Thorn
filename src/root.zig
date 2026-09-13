@@ -2,6 +2,7 @@ pub const attacks = @import("attacks.zig");
 pub const cmd = @import("cmd.zig");
 pub const movegen = @import("movegen.zig");
 pub const util = @import("util.zig");
+pub const Hash = @import("Hash.zig").Hash;
 pub const Move = @import("Move.zig").Move;
 pub const MoveList = @import("MoveList.zig");
 pub const PieceSet = @import("PieceSet.zig");
@@ -190,6 +191,10 @@ pub const Dir = enum(u8) {
 
     pub fn flip(self: Dir) Dir {
         return @enumFromInt((@intFromEnum(self) + 4) % 8);
+    }
+
+    pub fn toIndex(self: Dir) usize {
+        return @intFromEnum(self);
     }
 };
 

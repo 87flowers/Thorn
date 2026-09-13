@@ -20,7 +20,7 @@ pub fn push(self: *MoveList, from: Square, to: Square, flags: Move.Flags) void {
 }
 
 pub fn pushSets(self: *MoveList, from: Square, normal_to: SquareSet, cap_to: SquareSet) void {
-    if (has_compress) {
+    if (intrin.has_compress) {
         const to = normal_to.bitOr(cap_to);
 
         const build_template = struct {
@@ -66,7 +66,7 @@ pub fn pushSets(self: *MoveList, from: Square, normal_to: SquareSet, cap_to: Squ
 }
 
 pub fn pushPawnRank(self: *MoveList, base: Square, from: u8, comptime offset: i8, comptime color: Color, comptime flags: Move.Flags) void {
-    if (has_compress) {
+    if (intrin.has_compress) {
         const template = switch (color) {
             .white => comptime blk: {
                 var result: @Vector(8, u16) = undefined;
@@ -121,7 +121,7 @@ pub fn pushPawnRank(self: *MoveList, base: Square, from: u8, comptime offset: i8
 }
 
 pub fn pushPawnBody(self: *MoveList, from: u32, color: Color) void {
-    if (has_compress) {
+    if (intrin.has_compress) {
         const template = switch (color) {
             .white => comptime blk: {
                 var result: @Vector(32, u16) = undefined;
@@ -138,7 +138,7 @@ pub fn pushPawnBody(self: *MoveList, from: u32, color: Color) void {
         @memcpy(self.storage[self.len .. self.len + 32], @as([32]Move, @bitCast(c))[0..32]);
         self.len += @popCount(from);
     } else {
-        const offset = switch (color) {
+        const offset: i32 = switch (color) {
             .white => 8,
             .black => -8,
         };
@@ -165,7 +165,7 @@ pub fn pushPawnCapture(self: *MoveList, from: SquareSet, comptime dir: Dir) void
         else => unreachable,
     };
     var set = from.raw & mask;
-    if (has_compress) {
+    if (intrin.has_compress) {
         const template0 = blk: {
             var result: @Vector(32, u16) = undefined;
             inline for (0..32) |i| result[i] = @as(u16, i) | sqOffset(i, offset) << 6 | @intFromEnum(Move.Flags.cap_normal);
@@ -211,7 +211,7 @@ pub fn pushPawnPromoCapture(self: *MoveList, base: Square, from: u8, comptime di
         else => unreachable,
     };
     var set = from & mask;
-    if (has_compress) {
+    if (intrin.has_compress) {
         const template = comptime blk: {
             var result: @Vector(8, u16) = undefined;
             switch (dir) {
@@ -242,8 +242,6 @@ fn sqOffset(i: u16, offset: i32) u16 {
     const sum_unsigned: u32 = @bitCast(sum);
     return @truncate(sum_unsigned);
 }
-
-const has_compress = @import("builtin").cpu.has(.x86, .avx512vbmi2);
 
 const MoveList = @This();
 const std = @import("std");

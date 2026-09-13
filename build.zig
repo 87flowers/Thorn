@@ -1,5 +1,17 @@
 const std = @import("std");
 
+fn buildAndRunCodegen(b: *std.Build, comptime name: []const u8) std.Build.LazyPath {
+    const tool = b.addExecutable(.{
+        .name = name,
+        .root_module = b.createModule(.{
+            .root_source_file = b.path("tools/" ++ name ++ ".zig"),
+            .target = b.graph.host,
+        }),
+    });
+    const tool_step = b.addRunArtifact(tool);
+    return tool_step.addOutputFileArg(name ++ "_output.zig");
+}
+
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
@@ -7,6 +19,9 @@ pub fn build(b: *std.Build) void {
     const mod = b.addModule("thorn", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
+    });
+    mod.addAnonymousImport("hash_tables", .{
+        .root_source_file = buildAndRunCodegen(b, "generate_hashes"),
     });
 
     const exe = b.addExecutable(.{

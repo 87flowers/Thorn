@@ -36,24 +36,12 @@ pub const SquareSet = packed struct {
 
     pub fn rayMask(start: Square, dir: Dir) SquareSet {
         assert(start.isSome());
-        var bb = start.toSet();
-        var result = SquareSet.empty;
-        while (!bb.isEmpty()) {
-            bb = bb.shift(dir);
-            result = result.bitOr(bb);
-        }
-        return result;
+        return raymask_table[start.toIndex()][dir.toIndex()];
     }
 
     pub fn rayMaskExceptLast(start: Square, dir: Dir) SquareSet {
         assert(start.isSome());
-        var bb = start.toSet().shift(dir);
-        var result = SquareSet.empty;
-        while (!bb.shift(dir).isEmpty()) {
-            result = result.bitOr(bb);
-            bb = bb.shift(dir);
-        }
-        return result;
+        return raymask_except_last_table[start.toIndex()][dir.toIndex()];
     }
 
     pub fn diagonalMask(sq: Square) SquareSet {
@@ -176,6 +164,40 @@ pub const SquareSet = packed struct {
     } {
         return .{ .remaining = self };
     }
+};
+
+const raymask_table: [64][8]SquareSet = blk: {
+    @setEvalBranchQuota(100_000);
+    var result: [64][8]SquareSet = @splat(@splat(.empty));
+    for (0..64) |i| {
+        const start: Square = .fromIndex(i);
+        for (0..8) |j| {
+            const dir: Dir = @enumFromInt(j);
+            var bb = start.toSet();
+            while (!bb.isEmpty()) {
+                bb = bb.shift(dir);
+                result[i][j].insert(bb);
+            }
+        }
+    }
+    break :blk result;
+};
+
+const raymask_except_last_table: [64][8]SquareSet = blk: {
+    @setEvalBranchQuota(100_000);
+    var result: [64][8]SquareSet = @splat(@splat(.empty));
+    for (0..64) |i| {
+        const start: Square = .fromIndex(i);
+        for (0..8) |j| {
+            const dir: Dir = @enumFromInt(j);
+            var bb = start.toSet().shift(dir);
+            while (!bb.shift(dir).isEmpty()) {
+                result[i][j].insert(bb);
+                bb = bb.shift(dir);
+            }
+        }
+    }
+    break :blk result;
 };
 
 const diagonal_table: [64]SquareSet = blk: {
