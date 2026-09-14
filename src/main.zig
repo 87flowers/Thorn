@@ -4,6 +4,7 @@ pub fn main(init: std.process.Init) !void {
     const args = try init.minimal.args.toSlice(arena);
 
     const io = init.io;
+    const gpa = init.gpa;
 
     var stdout_buffer: [1024]u8 = undefined;
     var stdout_file_writer: Io.File.Writer = .init(.stdout(), io, &stdout_buffer);
@@ -12,6 +13,12 @@ pub fn main(init: std.process.Init) !void {
     const stdin_buffer = try arena.alloc(u8, 1024 * 1024);
     var stdin_file_reader: Io.File.Reader = .init(.stdin(), io, stdin_buffer);
     const stdin = &stdin_file_reader.interface;
+
+    var engine = try thorn.Engine.init(io, gpa);
+    defer engine.deinit(io, gpa);
+
+    engine.wait(io);
+    engine.go(io);
 
     var uci: Uci = .{
         .io = io,

@@ -1,18 +1,16 @@
 pub fn Broadcast(comptime T: type) type {
     return struct {
-        msg: std.atomic.Value(*const T),
+        msg: std.atomic.Value(?*const T),
         futex: std.atomic.Value(u32),
         reader_count: u31,
 
-        pub fn new(reader_count: u31) Self {
-            return .{
-                .msg = .init(null),
-                .futex = .{
-                    .count = 0,
-                    .generation = 0,
-                },
-                .reader_count = reader_count,
-            };
+        pub fn reset(self: *Self, reader_count: u31) void {
+            self.msg = .init(null);
+            self.futex = .init(@bitCast(Futex{
+                .count = 0,
+                .generation = 0,
+            }));
+            self.reader_count = reader_count;
         }
 
         pub fn createReceiver(self: *Self) Receiver {
@@ -47,16 +45,20 @@ pub fn Broadcast(comptime T: type) type {
             sender: *Self,
             generation: u1,
 
+            pub fn reset(self: *Receiver) void {
+                self.generation = 0;
+            }
+
             pub fn wait(self: *Receiver, io: std.Io) *const T {
                 while (true) {
-                    const f = @atomicLoad(Futex, &self.sender.futex, .acquire);
+                    const f: Futex = @bitCast(self.sender.futex.load(.acquire));
                     if (f.generation != self.generation) break;
-                    io.futexWaitUncancelable(Futex, &self.sender.futex, f);
+                    io.futexWaitUncancelable(u32, &self.sender.futex.raw, @bitCast(f));
                 }
 
                 self.generation = ~self.generation;
 
-                return self.sender.msg;
+                return self.sender.msg.load(.unordered) orelse unreachable;
             }
 
             pub fn done(self: *Receiver, io: std.Io) void {
