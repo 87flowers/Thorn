@@ -17,14 +17,14 @@ pub fn main(init: std.process.Init) !void {
     var engine = try thorn.Engine.init(io, gpa);
     defer engine.deinit(io, gpa);
 
-    engine.wait(io);
-    engine.go(io);
-
     var uci: Uci = .{
         .io = io,
         .writer = stdout,
         .game = .startpos,
     };
+
+    engine.wait(io);
+    engine.go(io, &uci.game);
 
     if (args.len > 1) {
         for (args[1..]) |line| {

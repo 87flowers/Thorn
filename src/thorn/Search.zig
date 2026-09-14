@@ -28,9 +28,10 @@ fn threadMain(self: *Search) void {
                 self.channel.done(self.io);
                 return;
             },
-            .go => {
-                self.channel.done(self.io);
+            .go => |*m| {
                 std.debug.print("go received by thread {}\n", .{self.index});
+                std.debug.print("position: {f}\n", .{m.game.position});
+                self.channel.done(self.io);
             },
         }
     }

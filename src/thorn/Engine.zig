@@ -23,8 +23,10 @@ pub fn wait(self: *Engine, io: std.Io) void {
     self.channel.broadcast(io, &msg);
 }
 
-pub fn go(self: *Engine, io: std.Io) void {
-    const msg: Message = .go;
+pub fn go(self: *Engine, io: std.Io, game: *Game) void {
+    const msg: Message = .{ .go = .{
+        .game = game,
+    } };
     self.channel.broadcast(io, &msg);
 }
 
@@ -37,7 +39,9 @@ pub const MessageKind = enum {
 pub const Message = union(MessageKind) {
     ping: void,
     quit: void,
-    go: struct {},
+    go: struct {
+        game: *Game,
+    },
 };
 
 fn quitSearches(self: *Engine, io: std.Io) void {
@@ -50,4 +54,5 @@ const Engine = @This();
 const std = @import("std");
 const thorn = @import("../thorn.zig");
 const Broadcast = thorn.util.Broadcast;
+const Game = thorn.Game;
 const Search = thorn.Search;
