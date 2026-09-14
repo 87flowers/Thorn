@@ -305,7 +305,7 @@ const ray_past_table: [64][64]SquareSet = blk: {
 
 const std = @import("std");
 const assert = std.debug.assert;
-const thorn = @import("root.zig");
+const thorn = @import("../thorn.zig");
 const Dir = thorn.Dir;
 const File = thorn.File;
 const Square = thorn.Square;

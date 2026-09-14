@@ -1,13 +1,14 @@
-pub const attacks = @import("attacks.zig");
-pub const cmd = @import("cmd.zig");
-pub const movegen = @import("movegen.zig");
-pub const util = @import("util.zig");
-pub const Hash = @import("Hash.zig").Hash;
-pub const Move = @import("Move.zig").Move;
-pub const MoveList = @import("MoveList.zig");
-pub const PieceSet = @import("PieceSet.zig");
-pub const Position = @import("Position.zig");
-pub const SquareSet = @import("SquareSet.zig").SquareSet;
+pub const attacks = @import("thorn/attacks.zig");
+pub const cmd = @import("thorn/cmd.zig");
+pub const movegen = @import("thorn/movegen.zig");
+pub const util = @import("thorn/util.zig");
+pub const Game = @import("thorn/Game.zig");
+pub const Hash = @import("thorn/Hash.zig").Hash;
+pub const Move = @import("thorn/Move.zig").Move;
+pub const MoveList = @import("thorn/MoveList.zig");
+pub const PieceSet = @import("thorn/PieceSet.zig");
+pub const Position = @import("thorn/Position.zig");
+pub const SquareSet = @import("thorn/SquareSet.zig").SquareSet;
 
 pub const ParseError = error{
     InvalidChar,

@@ -208,7 +208,7 @@ pub fn move(noalias self: *const Position, noalias new_pos: *Position, m: Move) 
             new_pos.enpassant = to.toggleRankLsb();
             new_pos.fifty_move_clock = 0;
 
-            new_pos.updateAttacks(stm, src_id, src_piece.ptype(), to);
+            new_pos.updateAttacks(stm, src_id, .p, to);
             new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{ from, to })));
             new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{ from, to })));
         },
@@ -220,7 +220,7 @@ pub fn move(noalias self: *const Position, noalias new_pos: *Position, m: Move) 
             new_pos.addPiece(to, src_piece, src_id);
             new_pos.fifty_move_clock = 0;
 
-            new_pos.updateAttacks(stm, src_id, src_piece.ptype(), to);
+            new_pos.updateAttacks(stm, src_id, .p, to);
             new_pos.removeAttacks(stm.invert(), victim_id);
             new_pos.updateSliderAttacks(.white, self.whichAttackTo(.white, .set(.{ from, to, victim })));
             new_pos.updateSliderAttacks(.black, self.whichAttackTo(.black, .set(.{ from, to, victim })));
@@ -749,7 +749,7 @@ test "roundtrip fens" {
 const Position = @This();
 const std = @import("std");
 const assert = std.debug.assert;
-const thorn = @import("root.zig");
+const thorn = @import("../thorn.zig");
 const attacks = thorn.attacks;
 const Color = thorn.Color;
 const File = thorn.File;

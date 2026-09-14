@@ -11,12 +11,22 @@ pub fn StaticVec(comptime T: type, comptime capacity: usize) type {
         }
 
         pub fn push(self: *Self, item: T) void {
+            assert(self.len < capacity);
             self.storage[self.len] = item;
             self.len += 1;
         }
 
         pub fn constSlice(self: *const Self) []const T {
             return self.storage[0..self.len];
+        }
+
+        pub fn back(self: *Self) T {
+            assert(self.len > 0);
+            return self.storage[self.len - 1];
+        }
+
+        pub fn clear(self: *Self) void {
+            self.len = 0;
         }
 
         pub fn format(self: *const Self, writer: *Writer) Writer.Error!void {
@@ -29,4 +39,5 @@ pub fn StaticVec(comptime T: type, comptime capacity: usize) type {
 }
 
 const std = @import("std");
+const assert = std.debug.assert;
 const Writer = std.Io.Writer;

@@ -167,7 +167,7 @@ fn generateKingMoves(moves: *MoveList, position: *const Position) void {
     moves.pushSets(king, safe_attacks.bitAnd(empty), safe_attacks.bitAnd(enemy));
 }
 
-const thorn = @import("root.zig");
+const thorn = @import("../thorn.zig");
 const attacks = thorn.attacks;
 const Color = thorn.Color;
 const Dir = thorn.Dir;

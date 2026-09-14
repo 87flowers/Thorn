@@ -16,7 +16,7 @@ pub fn compress(mask: anytype, src: anytype) @TypeOf(src) {
 pub const has_compress = using_llvm and @import("builtin").cpu.has(.x86, .avx512vbmi2);
 
 pub fn pext(x: u64, mask: u64) u64 {
-    if (!using_llvm) {
+    if (!using_llvm or @inComptime()) {
         var m: u64 = mask;
         var j: u6 = 0;
         var result: u64 = 0;
@@ -34,7 +34,7 @@ pub fn pext(x: u64, mask: u64) u64 {
 }
 
 pub fn pdep(x: u64, mask: u64) u64 {
-    if (!using_llvm) {
+    if (!using_llvm or @inComptime()) {
         var m: u64 = mask;
         var j: u6 = 0;
         var result: u64 = 0;

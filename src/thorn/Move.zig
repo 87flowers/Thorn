@@ -134,7 +134,7 @@ pub const Move = packed struct {
 
 const std = @import("std");
 const assert = std.debug.assert;
-const thorn = @import("root.zig");
+const thorn = @import("../thorn.zig");
 const MoveFormat = thorn.MoveFormat;
 const ParseError = thorn.ParseError;
 const PieceType = thorn.PieceType;

@@ -11,13 +11,13 @@ pub fn ptype(pt: PieceType, occ: SquareSet, sq: Square, color: Color) SquareSet 
 }
 
 pub fn bishop(occ: SquareSet, sq: Square) SquareSet {
-    const e = bishop_table[0][sq.toIndex()];
-    return bishop_table[1][e.offset + intrin.pext(occ.raw, e.mask.raw)];
+    const e = pext_tables.bishop[sq.toIndex()];
+    return .make(pext_tables.bishop_lut[e.offset + intrin.pext(occ.raw, e.mask)]);
 }
 
 pub fn rook(occ: SquareSet, sq: Square) SquareSet {
-    const e = rook_table[0][sq.toIndex()];
-    return rook_table[1][e.offset + intrin.pext(occ.raw, e.mask.raw)];
+    const e = pext_tables.rook[sq.toIndex()];
+    return .make(pext_tables.rook_lut[e.offset + intrin.pext(occ.raw, e.mask)]);
 }
 
 pub fn queen(occ: SquareSet, sq: Square) SquareSet {
@@ -39,7 +39,7 @@ pub fn pawn(sq: Square, color: Color) SquareSet {
     return pawn_table[color.toIndex()][sq.toIndex()];
 }
 
-fn bishopHq(occ: SquareSet, sq: Square) SquareSet {
+pub fn bishopHq(occ: SquareSet, sq: Square) SquareSet {
     assert(sq.isSome());
     const m = hq_masks_table[sq.toIndex()];
     const bit = sq.toSet();
@@ -58,7 +58,7 @@ fn bishopHq(occ: SquareSet, sq: Square) SquareSet {
     return SquareSet.make(diag_forward | anti_forward);
 }
 
-fn rookHq(occ: SquareSet, sq: Square) SquareSet {
+pub fn rookHq(occ: SquareSet, sq: Square) SquareSet {
     assert(sq.isSome());
     const m = hq_masks_table[sq.toIndex()];
     const bit = sq.toSet();
@@ -146,66 +146,6 @@ const king_table = blk: {
     break :blk result;
 };
 
-const bishop_table = blk: {
-    @setEvalBranchQuota(100_000_000);
-
-    var table: [64]SliderTable = @splat(.{ .mask = .empty, .offset = undefined });
-    var entry_count: [64]usize = undefined;
-    var total_entry_count: usize = 0;
-    for (0..64) |i| {
-        const sq: Square = .fromIndex(i);
-        table[i].mask.insert(.rayMaskExceptLast(sq, .ne));
-        table[i].mask.insert(.rayMaskExceptLast(sq, .nw));
-        table[i].mask.insert(.rayMaskExceptLast(sq, .se));
-        table[i].mask.insert(.rayMaskExceptLast(sq, .sw));
-        entry_count[i] = @as(usize, 1) << @intCast(table[i].mask.popcount());
-        table[i].offset = total_entry_count;
-        total_entry_count += entry_count[i];
-    }
-
-    var result_table: [total_entry_count]SquareSet = @splat(.empty);
-    for (0..64) |i| {
-        const sq: Square = .fromIndex(i);
-        const mask: SquareSet = table[i].mask;
-        for (0..entry_count[i]) |j| {
-            const occ: SquareSet = .make(intrin.pdep(j, mask.raw));
-            result_table[table[i].offset + j] = bishopHq(occ, sq);
-        }
-    }
-
-    break :blk .{ table, result_table };
-};
-
-const rook_table = blk: {
-    @setEvalBranchQuota(100_000_000);
-
-    var table: [64]SliderTable = @splat(.{ .mask = .empty, .offset = undefined });
-    var entry_count: [64]usize = undefined;
-    var total_entry_count: usize = 0;
-    for (0..64) |i| {
-        const sq: Square = .fromIndex(i);
-        table[i].mask.insert(.rayMaskExceptLast(sq, .n));
-        table[i].mask.insert(.rayMaskExceptLast(sq, .e));
-        table[i].mask.insert(.rayMaskExceptLast(sq, .s));
-        table[i].mask.insert(.rayMaskExceptLast(sq, .w));
-        entry_count[i] = @as(usize, 1) << @intCast(table[i].mask.popcount());
-        table[i].offset = total_entry_count;
-        total_entry_count += entry_count[i];
-    }
-
-    var result_table: [total_entry_count]SquareSet = @splat(.empty);
-    for (0..64) |i| {
-        const sq: Square = .fromIndex(i);
-        const mask: SquareSet = table[i].mask;
-        for (0..entry_count[i]) |j| {
-            const occ: SquareSet = .make(intrin.pdep(j, mask.raw));
-            result_table[table[i].offset + j] = rookHq(occ, sq);
-        }
-    }
-
-    break :blk .{ table, result_table };
-};
-
 const SliderTable = struct {
     mask: SquareSet,
     offset: usize,
@@ -213,7 +153,8 @@ const SliderTable = struct {
 
 const std = @import("std");
 const assert = std.debug.assert;
-const thorn = @import("root.zig");
+const pext_tables = @import("pext_tables");
+const thorn = @import("../thorn.zig");
 const intrin = thorn.util.intrin;
 const Color = thorn.Color;
 const PieceType = thorn.PieceType;

@@ -69,5 +69,5 @@ pub fn iter(self: PieceSet) struct {
 }
 
 const PieceSet = @This();
-const thorn = @import("root.zig");
+const thorn = @import("../thorn.zig");
 const PieceId = thorn.PieceId;

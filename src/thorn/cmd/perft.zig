@@ -40,5 +40,5 @@ pub fn core(position: *const Position, depth: usize, comptime semibulk: bool) u6
 }
 
 const std = @import("std");
-const thorn = @import("../root.zig");
+const thorn = @import("../../thorn.zig");
 const Position = thorn.Position;

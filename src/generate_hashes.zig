@@ -310,7 +310,7 @@ pub fn main(init: std.process.Init) !void {
 
     const IDENT = "    ";
 
-    try out.print("const piece: [2][6][64]u64 = .{{\n", .{});
+    try out.print("pub const piece: [2][6][64]u64 = .{{\n", .{});
     for (0..2) |c| {
         try out.print(IDENT ++ ".{{\n", .{});
         for (1..7) |p| {
@@ -327,7 +327,7 @@ pub fn main(init: std.process.Init) !void {
     }
     try out.print("}};\n\n", .{});
 
-    try out.print("const enpassant: [64]u64 = .{{\n", .{});
+    try out.print("pub const enpassant: [64]u64 = .{{\n", .{});
     for (0..64) |i| {
         if (i % 8 == 0) try out.print("   ", .{});
         const h: u64 = getHash(pm, i, 7);
@@ -336,7 +336,7 @@ pub fn main(init: std.process.Init) !void {
     }
     try out.print("}};\n\n", .{});
 
-    try out.print("const castle: [16]u64 = .{{\n", .{});
+    try out.print("pub const castle: [16]u64 = .{{\n", .{});
     for (0..16) |i| {
         if (i % 8 == 0) try out.print("   ", .{});
         const h: u64 = getCastleHash(pm, i);
@@ -345,7 +345,7 @@ pub fn main(init: std.process.Init) !void {
     }
     try out.print("}};\n\n", .{});
 
-    try out.print("const stm = 0x{X:016};\n\n", .{getStmHash(pm)});
+    try out.print("pub const stm = 0x{X:016};\n\n", .{getStmHash(pm)});
 
     return std.process.cleanExit(io);
 }

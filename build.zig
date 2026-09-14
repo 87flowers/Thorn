@@ -4,7 +4,7 @@ fn buildAndRunCodegen(b: *std.Build, comptime name: []const u8) std.Build.LazyPa
     const tool = b.addExecutable(.{
         .name = name,
         .root_module = b.createModule(.{
-            .root_source_file = b.path("tools/" ++ name ++ ".zig"),
+            .root_source_file = b.path("src/" ++ name ++ ".zig"),
             .target = b.graph.host,
         }),
     });
@@ -16,14 +16,6 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
-    const mod = b.addModule("thorn", .{
-        .root_source_file = b.path("src/root.zig"),
-        .target = target,
-    });
-    mod.addAnonymousImport("hash_tables", .{
-        .root_source_file = buildAndRunCodegen(b, "generate_hashes"),
-    });
-
     const exe = b.addExecutable(.{
         .name = "thorn",
         .root_module = b.createModule(.{
@@ -31,7 +23,12 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = optimize,
             .imports = &.{
-                .{ .name = "thorn", .module = mod },
+                .{ .name = "hash_tables", .module = b.createModule(.{
+                    .root_source_file = buildAndRunCodegen(b, "generate_hashes"),
+                }) },
+                .{ .name = "pext_tables", .module = b.createModule(.{
+                    .root_source_file = buildAndRunCodegen(b, "generate_pext"),
+                }) },
             },
         }),
     });
@@ -49,12 +46,6 @@ pub fn build(b: *std.Build) void {
         run_cmd.addArgs(args);
     }
 
-    const mod_tests = b.addTest(.{
-        .root_module = mod,
-    });
-
-    const run_mod_tests = b.addRunArtifact(mod_tests);
-
     const exe_tests = b.addTest(.{
         .root_module = exe.root_module,
     });
@@ -62,6 +53,5 @@ pub fn build(b: *std.Build) void {
     const run_exe_tests = b.addRunArtifact(exe_tests);
 
     const test_step = b.step("test", "Run tests");
-    test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_exe_tests.step);
 }

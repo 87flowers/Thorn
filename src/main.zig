@@ -16,7 +16,7 @@ pub fn main(init: std.process.Init) !void {
     var uci: Uci = .{
         .io = io,
         .writer = stdout,
-        .position = thorn.Position.startpos,
+        .game = .startpos,
     };
 
     if (args.len > 1) {
@@ -36,7 +36,7 @@ pub fn main(init: std.process.Init) !void {
 const Uci = struct {
     io: std.Io,
     writer: *std.Io.Writer,
-    position: thorn.Position,
+    game: thorn.Game,
 
     pub fn processLine(self: *Uci, line: []const u8) !void {
         var it = std.mem.tokenizeAny(u8, line, " \t\r\n");
@@ -44,9 +44,9 @@ const Uci = struct {
         if (std.ascii.eqlIgnoreCase(cmd, "position")) {
             const pos_type = it.next() orelse return;
             if (std.mem.eql(u8, pos_type, "startpos")) {
-                self.position = thorn.Position.startpos;
+                self.game.setPosition(.startpos);
             } else if (std.mem.eql(u8, pos_type, "kiwipete")) {
-                self.position = thorn.Position.kiwipete;
+                self.game.setPosition(.kiwipete);
             } else if (std.mem.eql(u8, pos_type, "fen")) {
                 const board_str = it.next() orelse "";
                 const color = it.next() orelse "";
@@ -54,18 +54,15 @@ const Uci = struct {
                 const enpassant = it.next() orelse "";
                 const no_capture_clock = it.next() orelse "";
                 const turn = it.next() orelse "";
-                self.position = thorn.Position.parseParts(board_str, color, castling, enpassant, no_capture_clock, turn) catch return;
+                self.game.setPosition(thorn.Position.parseParts(board_str, color, castling, enpassant, no_capture_clock, turn) catch return);
             } else {
                 return;
             }
 
-            std.debug.print("{s}\n", .{it.rest()});
             if (std.ascii.eqlIgnoreCase(it.next() orelse "", "moves")) {
                 while (it.next()) |move_str| {
-                    const m = thorn.Move.parse(move_str, &self.position) catch break;
-                    var next_pos: thorn.Position = undefined;
-                    self.position.move(&next_pos, m);
-                    self.position = next_pos;
+                    const m = thorn.Move.parse(move_str, &self.game.position) catch break;
+                    self.game.move(m);
                 }
             }
         } else if (std.ascii.eqlIgnoreCase(cmd, "perft")) {
@@ -79,7 +76,7 @@ const Uci = struct {
             else
                 return;
             switch (bulk) {
-                inline else => |b| try thorn.cmd.perft.run(self.io, self.writer, &self.position, depth, b),
+                inline else => |b| try thorn.cmd.perft.run(self.io, self.writer, &self.game.position, depth, b),
             }
         } else if (std.ascii.eqlIgnoreCase(cmd, "quit")) {
             std.process.exit(0);
@@ -87,6 +84,10 @@ const Uci = struct {
     }
 };
 
+test {
+    std.testing.refAllDecls(@This());
+}
+
 const std = @import("std");
 const Io = std.Io;
-const thorn = @import("thorn");
+const thorn = @import("thorn.zig");

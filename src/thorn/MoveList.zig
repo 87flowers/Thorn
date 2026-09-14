@@ -246,7 +246,7 @@ fn sqOffset(i: u16, offset: i32) u16 {
 const MoveList = @This();
 const std = @import("std");
 const assert = std.debug.assert;
-const thorn = @import("root.zig");
+const thorn = @import("../thorn.zig");
 const intrin = thorn.util.intrin;
 const Color = thorn.Color;
 const Dir = thorn.Dir;
