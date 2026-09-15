@@ -68,6 +68,8 @@ pub fn processLine(
                 game.move(m);
             }
         }
+    } else if (std.ascii.eqlIgnoreCase(cmd, "d")) {
+        try thorn.cmd.display.run(io, out, &game.position);
     } else if (std.ascii.eqlIgnoreCase(cmd, "perft")) {
         const depth_str = it.next() orelse "1";
         const depth = std.fmt.parseUnsigned(usize, depth_str, 10) catch return;
