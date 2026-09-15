@@ -24,6 +24,8 @@ pub fn main(init: std.process.Init) !void {
     };
 
     engine.wait(io);
+    engine.setOutputMode(io, .uci);
+    engine.setMoveFormat(io, .classical);
     engine.go(io, &uci.game);
 
     if (args.len > 1) {

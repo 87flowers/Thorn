@@ -4,6 +4,9 @@ channel: Broadcast(Engine.Message).Receiver,
 index: usize,
 thread: std.Thread,
 
+output_mode: Engine.OutputMode,
+move_format: MoveFormat,
+
 pub fn launch(
     self: *Search,
     io: std.Io,
@@ -17,6 +20,8 @@ pub fn launch(
     self.channel = channel;
     self.index = index;
     self.thread = try std.Thread.spawn(.{}, threadMain, .{self});
+    self.output_mode = .none;
+    self.move_format = .frc;
 }
 
 fn threadMain(self: *Search) void {
@@ -27,6 +32,14 @@ fn threadMain(self: *Search) void {
             .quit => {
                 self.channel.done(self.io);
                 return;
+            },
+            .output_mode => |output_mode| {
+                self.output_mode = output_mode;
+                self.channel.done(self.io);
+            },
+            .move_format => |move_format| {
+                self.move_format = move_format;
+                self.channel.done(self.io);
             },
             .go => |*m| {
                 std.debug.print("go received by thread {}\n", .{self.index});
@@ -42,3 +55,4 @@ const std = @import("std");
 const thorn = @import("../thorn.zig");
 const Broadcast = thorn.util.Broadcast;
 const Engine = thorn.Engine;
+const MoveFormat = thorn.MoveFormat;

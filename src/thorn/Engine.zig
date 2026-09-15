@@ -30,15 +30,34 @@ pub fn go(self: *Engine, io: std.Io, game: *Game) void {
     self.channel.broadcast(io, &msg);
 }
 
+pub fn setOutputMode(self: *Engine, io: std.Io, output_mode: OutputMode) void {
+    const msg: Message = .{ .output_mode = output_mode };
+    self.channel.broadcast(io, &msg);
+}
+
+pub fn setMoveFormat(self: *Engine, io: std.Io, move_format: MoveFormat) void {
+    const msg: Message = .{ .move_format = move_format };
+    self.channel.broadcast(io, &msg);
+}
+
+pub const OutputMode = enum {
+    none,
+    uci,
+};
+
 pub const MessageKind = enum {
     ping,
     quit,
+    output_mode,
+    move_format,
     go,
 };
 
 pub const Message = union(MessageKind) {
     ping: void,
     quit: void,
+    output_mode: OutputMode,
+    move_format: MoveFormat,
     go: struct {
         game: *Game,
     },
@@ -55,4 +74,5 @@ const std = @import("std");
 const thorn = @import("../thorn.zig");
 const Broadcast = thorn.util.Broadcast;
 const Game = thorn.Game;
+const MoveFormat = thorn.MoveFormat;
 const Search = thorn.Search;
