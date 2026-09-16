@@ -7,6 +7,8 @@ thread: std.Thread,
 output_mode: Engine.OutputMode,
 move_format: MoveFormat,
 
+root_position: Position,
+
 pub fn launch(
     self: *Search,
     io: std.Io,
@@ -24,7 +26,7 @@ pub fn launch(
     self.move_format = .frc;
 }
 
-fn threadMain(self: *Search) void {
+fn threadMain(self: *Search) !void {
     while (true) {
         const msg = self.channel.wait(self.io);
         switch (msg.*) {
@@ -42,17 +44,40 @@ fn threadMain(self: *Search) void {
                 self.channel.done(self.io);
             },
             .go => |*m| {
-                std.debug.print("go received by thread {}\n", .{self.index});
-                std.debug.print("position: {f}\n", .{m.game.position});
+                self.root_position = m.game.position;
                 self.channel.done(self.io);
+                try self.go(m.out);
             },
         }
+    }
+}
+
+fn go(self: *Search, out: *std.Io.Writer) !void {
+    const rng_source: std.Random.IoSource = .{ .io = self.io };
+    const rng = rng_source.interface();
+
+    var moves: MoveList = .new();
+    movegen.all(&moves, &self.root_position);
+
+    const index = rng.uintLessThan(usize, moves.len);
+    const m = moves.storage[index];
+
+    switch (self.output_mode) {
+        .uci => {
+            try out.print("info depth 0 nodes 0 score cp 0 pv {f}\n", .{m.toString(self.move_format)});
+            try out.print("bestmove {f}\n", .{m.toString(self.move_format)});
+            try out.flush();
+        },
+        .none => {},
     }
 }
 
 const Search = @This();
 const std = @import("std");
 const thorn = @import("../thorn.zig");
+const movegen = thorn.movegen;
 const Broadcast = thorn.util.Broadcast;
 const Engine = thorn.Engine;
 const MoveFormat = thorn.MoveFormat;
+const MoveList = thorn.MoveList;
+const Position = thorn.Position;

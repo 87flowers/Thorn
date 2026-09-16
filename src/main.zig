@@ -68,6 +68,8 @@ pub fn processLine(
                 game.move(m);
             }
         }
+    } else if (std.ascii.eqlIgnoreCase(cmd, "go")) {
+        engine.go(io, out, game);
     } else if (std.ascii.eqlIgnoreCase(cmd, "d")) {
         try thorn.cmd.display.run(io, out, &game.position);
     } else if (std.ascii.eqlIgnoreCase(cmd, "perft")) {

@@ -23,9 +23,10 @@ pub fn wait(self: *Engine, io: std.Io) void {
     self.channel.broadcast(io, &msg);
 }
 
-pub fn go(self: *Engine, io: std.Io, game: *Game) void {
+pub fn go(self: *Engine, io: std.Io, out: *std.Io.Writer, game: *Game) void {
     const msg: Message = .{ .go = .{
         .game = game,
+        .out = out,
     } };
     self.channel.broadcast(io, &msg);
 }
@@ -60,6 +61,7 @@ pub const Message = union(MessageKind) {
     move_format: MoveFormat,
     go: struct {
         game: *Game,
+        out: *std.Io.Writer,
     },
 };
 

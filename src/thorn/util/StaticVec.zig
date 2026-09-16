@@ -10,6 +10,11 @@ pub fn StaticVec(comptime T: type, comptime capacity: usize) type {
             };
         }
 
+        pub fn copyFrom(self: *Self, from: *const Self) void {
+            self.len = from.len;
+            @memcpy(self.storage[0..from.len], from.storage[0..from.len]);
+        }
+
         pub fn push(self: *Self, item: T) void {
             assert(self.len < capacity);
             self.storage[self.len] = item;
