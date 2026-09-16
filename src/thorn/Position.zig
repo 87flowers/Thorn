@@ -712,7 +712,7 @@ pub const Castling = struct {
 
     pub fn toIndex(self: Castling) u4 {
         assert(@intFromEnum(Square.none) == 0x80);
-        return @bitCast((self.raw & empty.raw) == empty.raw);
+        return (~@as(u4, @bitCast((self.raw & empty.raw) == empty.raw))) & 0xF;
     }
 
     pub const Side = enum(usize) { a = 0, h = 1 };
