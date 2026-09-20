@@ -16,10 +16,7 @@ pub fn Control(has: Has) type {
         }
 
         pub fn checkHardTermination(self: *const @This(), search: *Search) bool {
-            if (has.time and getNodes(search) % 1024 == 0) {
-                std.debug.print("{}\r", .{getMs(search)});
-                if (self.time_limit.hard <= getMs(search)) return true;
-            }
+            if (has.time and getNodes(search) % 1024 == 0 and self.time_limit.hard <= getMs(search)) return true;
             if (has.nodes) if (self.nodes_limit.hard) |hard| if (getNodes(search) >= hard) return true;
             return false;
         }
