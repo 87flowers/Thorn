@@ -8,7 +8,7 @@ pub fn run(io: std.Io, out: *std.Io.Writer, engine: *Engine) !void {
 
     for (fens, 0..) |fen, i| {
         game.setPosition(try Position.parse(fen));
-        engine.go(io, out, &game, .{});
+        engine.go(io, out, &game, timer, .{ .depth = bench_depth });
         total_nodes += engine.waitForTotalNodes(io);
         try out.print("{}/{} ...\r", .{ i, fens.len });
         try out.flush();
@@ -20,6 +20,8 @@ pub fn run(io: std.Io, out: *std.Io.Writer, engine: *Engine) !void {
     });
     try out.flush();
 }
+
+const bench_depth = 3;
 
 const fens = [_][]const u8{
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",

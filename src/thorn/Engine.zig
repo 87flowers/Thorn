@@ -28,11 +28,12 @@ pub fn newGame(self: *Engine, io: std.Io) void {
     self.channel.broadcast(io, &msg);
 }
 
-pub fn go(self: *Engine, io: std.Io, out: *std.Io.Writer, game: *Game, limits: SearchLimit) void {
+pub fn go(self: *Engine, io: std.Io, out: *std.Io.Writer, game: *Game, search_start: std.Io.Timestamp, limits: SearchLimit) void {
     const msg: Message = .{ .go = .{
         .game = game,
         .out = out,
         .limits = limits,
+        .search_start = search_start,
     } };
     self.channel.broadcast(io, &msg);
 }
@@ -100,6 +101,7 @@ pub const Message = union(MessageKind) {
         game: *Game,
         out: *std.Io.Writer,
         limits: SearchLimit,
+        search_start: std.Io.Timestamp,
     },
 };
 

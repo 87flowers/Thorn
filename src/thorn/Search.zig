@@ -1,4 +1,5 @@
 pub const control = @import("./Search/control.zig");
+pub const Stack = @import("./Search/Stack.zig");
 
 io: std.Io,
 searches: []Search,
@@ -9,9 +10,12 @@ thread: std.Thread,
 output_mode: Engine.OutputMode,
 move_format: MoveFormat,
 
+stopping: std.atomic.Value(bool),
 nodes: std.atomic.Value(u64),
 
+search_start: std.Io.Timestamp,
 root_position: Position,
+stack: [max_depth + stack_offset + 3]Stack,
 
 pub fn launch(
     self: *Search,
@@ -29,8 +33,6 @@ pub fn launch(
     self.output_mode = .none;
     self.move_format = .frc;
 }
-
-pub const Abort = error{Abort};
 
 fn threadMain(self: *Search) !void {
     while (true) {
@@ -54,7 +56,11 @@ fn threadMain(self: *Search) !void {
                 self.channel.done(self.io);
             },
             .go => |*m| {
+                self.search_start = m.search_start;
                 self.root_position = m.game.position;
+                self.nodes.store(0, .monotonic);
+                self.stopping.store(false, .monotonic);
+
                 if (self.index == 0) {
                     switch (control.Has{
                         .time = m.limits.hasTime(),
@@ -91,7 +97,7 @@ fn threadMain(self: *Search) !void {
 fn calcTimeLimit(limits: *const Engine.SearchLimit) struct { soft: i64, hard: i64 } {
     const margin_ms = 100;
 
-    const move_factor: f64 = if (limits.movestogo) |movestogo| 1.0 / @as(f64, @floatFromInt(movestogo)) else 0.625;
+    const move_factor: f64 = if (limits.movestogo) |movestogo| 1.0 / @as(f64, @floatFromInt(movestogo)) else 0.0625;
     const base: f64 = @floatFromInt(limits.base_ms orelse 0);
     const inc: f64 = @floatFromInt(limits.inc_ms orelse 0);
 
@@ -109,34 +115,145 @@ fn calcTimeLimit(limits: *const Engine.SearchLimit) struct { soft: i64, hard: i6
 
 fn newGame(_: *Search) void {}
 
-fn go(self: *Search, out: *std.Io.Writer, _: anytype) !void {
-    self.nodes.store(0, .seq_cst);
+fn go(self: *Search, out: *std.Io.Writer, ctrl: anytype) !void {
+    self.stack = @splat(.{});
 
-    const rng_source: std.Random.IoSource = .{ .io = self.io };
-    const rng = rng_source.interface();
+    var last_pv: Line = .{};
+    var last_score: Score = score.none;
+    var last_depth: i32 = -1;
 
-    var moves: MoveList = .new();
-    movegen.all(&moves, &self.root_position);
+    self.ss(0).position = self.root_position;
 
-    const index = rng.uintLessThan(usize, moves.len);
-    const m = moves.storage[index];
+    var depth: i32 = 1;
+    while (depth < max_depth) : (depth += 1) {
+        const s = self.searchRoot(ctrl, @intCast(depth)) catch break;
+
+        if (self.stopping.load(.monotonic)) break;
+
+        last_pv.copyFrom(&self.ss(0).pv);
+        last_score = s;
+        last_depth = depth;
+
+        if (self.index == 0 and ctrl.checkSoftTermination(self, depth)) break;
+        if (self.index == 0) try self.printInfoLine(out, last_depth, last_score, &last_pv);
+    }
 
     switch (self.output_mode) {
         .uci => {
-            try out.print("info depth 0 nodes 0 score cp 0 pv {f}\n", .{m.toString(self.move_format)});
-            try out.print("bestmove {f}\n", .{m.toString(self.move_format)});
+            try self.printInfoLine(out, last_depth, last_score, &last_pv);
+            try out.print("bestmove {f}\n", .{last_pv.storage[0].toString(self.move_format)});
             try out.flush();
         },
         .none => {},
     }
 }
 
+fn printInfoLine(self: *Search, out: *std.Io.Writer, depth: i32, s: Score, pv: *const Line) !void {
+    if (self.output_mode == .none) return;
+
+    const elapsed = self.search_start.untilNow(self.io, .awake).toMilliseconds();
+    const nodes = self.nodes.load(.monotonic);
+    const nps = nodes * 1000 / @as(u64, @intCast(@max(1, elapsed)));
+
+    try out.print("info", .{});
+    try out.print(" depth {}", .{depth});
+    try out.print(" nodes {}", .{nodes});
+    if (score.distanceToMate(s)) |dtm| {
+        try out.print(" score mate {}", .{dtm});
+    } else {
+        try out.print(" score cp {}", .{s});
+    }
+    try out.print(" time {}", .{elapsed});
+    try out.print(" nps {}", .{nps});
+    try out.print(" pv", .{});
+    for (0..pv.len) |i| try out.print(" {f}", .{pv.storage[i].toString(self.move_format)});
+    try out.print("\n", .{});
+    try out.flush();
+}
+
+fn searchRoot(self: *Search, ctrl: anytype, depth: i32) Abort!Score {
+    _ = self.nodes.rmw(.Add, 1, .monotonic);
+
+    return self.searchBody(ctrl, 0, depth);
+}
+
+fn search(self: *Search, ctrl: anytype, parent_move: Move, ply: i32, depth: i32) Abort!Score {
+    _ = self.nodes.rmw(.Add, 1, .monotonic);
+
+    if (ctrl.checkHardTermination(self) or self.stopping.load(.monotonic)) {
+        for (self.searches) |*s| s.stopping.store(true, .monotonic);
+        return Abort.Abort;
+    }
+
+    if (depth <= 0 or ply >= max_depth) {
+        self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
+        return self.evaluate(ply);
+    }
+
+    self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
+
+    return self.searchBody(ctrl, ply, depth);
+}
+
+fn searchBody(self: *Search, ctrl: anytype, ply: i32, depth: i32) Abort!Score {
+    var moves: MoveList = .new();
+    movegen.all(&moves, &self.ss(ply).position);
+
+    var best_score: Score = score.none;
+    for (moves.constSlice()) |m| {
+        const s = -try self.search(ctrl, m, ply + 1, depth - 1);
+
+        if (s > best_score) {
+            best_score = s;
+            self.ss(ply).pv.writeLine(m, &self.ss(ply + 1).pv);
+        }
+    }
+
+    if (best_score == score.none) {
+        return if (self.ss(ply).position.checkers().isEmpty()) 0 else score.matedIn(ply);
+    }
+    return best_score;
+}
+
+fn evaluate(self: *Search, ply: i32) Score {
+    const position: *const Position = &self.ss(ply).position;
+    return switch (position.sideToMove()) {
+        .white => self.evaluateSide(ply, .white) - self.evaluateSide(ply, .black),
+        .black => self.evaluateSide(ply, .black) - self.evaluateSide(ply, .white),
+    };
+}
+
+fn evaluateSide(self: *Search, ply: i32, color: Color) Score {
+    const position: *const Position = &self.ss(ply).position;
+    var eval: Score = 0;
+    eval += position.coloredPtypeSet(color, .p).popcount() * 100;
+    eval += position.coloredPtypeSet(color, .n).popcount() * 300;
+    eval += position.coloredPtypeSet(color, .b).popcount() * 300;
+    eval += position.coloredPtypeSet(color, .r).popcount() * 500;
+    eval += position.coloredPtypeSet(color, .q).popcount() * 900;
+    return eval;
+}
+
+fn ss(self: *Search, ply: i32) *Stack {
+    return &self.stack[@intCast(ply + stack_offset)];
+}
+
+const max_depth = 240;
+const stack_offset = 7;
+
+const Abort = error{Abort};
+
 const Search = @This();
 const std = @import("std");
 const thorn = @import("../thorn.zig");
 const movegen = thorn.movegen;
+const score = thorn.score;
 const Broadcast = thorn.util.Broadcast;
+const Color = thorn.Color;
 const Engine = thorn.Engine;
+const Line = thorn.Line;
+const Move = thorn.Move;
 const MoveFormat = thorn.MoveFormat;
 const MoveList = thorn.MoveList;
 const Position = thorn.Position;
+const Score = thorn.score.Score;

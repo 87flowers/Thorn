@@ -1,7 +1,7 @@
 .RECIPEPREFIX = >
 SUFFIX :=
 
-ZIG_PATH := $(shell ./scripts/download_zig.sh "zig-x86_64-linux-0.17.0-dev.2234+80fe9b2b7" "2f2397ec1465e4260822ab00b3fb9bc78bb1a9bff564260cbf472158f5a04a15")
+ZIG_PATH := $(shell /usr/bin/env bash ./scripts/download_zig.sh "zig-x86_64-linux-0.17.0-dev.2234+80fe9b2b7" "2f2397ec1465e4260822ab00b3fb9bc78bb1a9bff564260cbf472158f5a04a15")
 
 EXE ?= thorn
 

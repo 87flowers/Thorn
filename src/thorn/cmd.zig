@@ -15,6 +15,8 @@ pub fn processLine(
     game: *Game,
     line: []const u8,
 ) !ShouldQuit {
+    const time_start: std.Io.Timestamp = .now(io, .awake);
+
     var it = std.mem.tokenizeAny(u8, line, " \t\r\n");
     const cmd = it.next() orelse return .next;
     if (std.ascii.eqlIgnoreCase(cmd, "position")) {
@@ -34,7 +36,6 @@ pub fn processLine(
         } else {
             return .next;
         }
-
         if (std.ascii.eqlIgnoreCase(it.next() orelse "", "moves")) {
             while (it.next()) |move_str| {
                 const m = Move.parse(move_str, &game.position) catch break;
@@ -67,7 +68,7 @@ pub fn processLine(
                 limits.depth = value;
             }
         }
-        engine.go(io, out, game, limits);
+        engine.go(io, out, game, time_start, limits);
     } else if (std.ascii.eqlIgnoreCase(cmd, "uci")) {
         try out.print(
             \\id name Thorn {s}
@@ -75,6 +76,7 @@ pub fn processLine(
             \\uciok
             \\
         , .{@import("../main.zig").thorn_version});
+        try out.flush();
     } else if (std.ascii.eqlIgnoreCase(cmd, "ucinewgame")) {
         engine.newGame(io);
         game.* = .startpos;
