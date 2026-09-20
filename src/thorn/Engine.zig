@@ -23,10 +23,17 @@ pub fn wait(self: *Engine, io: std.Io) void {
     self.channel.broadcast(io, &msg);
 }
 
-pub fn go(self: *Engine, io: std.Io, out: *std.Io.Writer, game: *Game) void {
+pub fn newGame(self: *Engine, io: std.Io) void {
+    const msg: Message = .new_game;
+    self.channel.broadcast(io, &msg);
+}
+
+pub fn go(self: *Engine, io: std.Io, out: *std.Io.Writer, game: *Game, search_start: std.Io.Timestamp, limits: SearchLimit) void {
     const msg: Message = .{ .go = .{
         .game = game,
         .out = out,
+        .limits = limits,
+        .search_start = search_start,
     } };
     self.channel.broadcast(io, &msg);
 }
@@ -48,6 +55,28 @@ pub fn setMoveFormat(self: *Engine, io: std.Io, move_format: MoveFormat) void {
     self.channel.broadcast(io, &msg);
 }
 
+pub const SearchLimit = struct {
+    base_ms: ?u64 = null,
+    inc_ms: ?u64 = null,
+    movetime_ms: ?u64 = null,
+    movestogo: ?u64 = null,
+    depth: ?i32 = null,
+    hard_nodes: ?u64 = null,
+    soft_nodes: ?u64 = null,
+
+    pub fn hasTime(self: *const SearchLimit) bool {
+        return self.base_ms != null or self.inc_ms != null or self.movetime_ms != null;
+    }
+
+    pub fn hasDepth(self: *const SearchLimit) bool {
+        return self.depth != null;
+    }
+
+    pub fn hasNodes(self: *const SearchLimit) bool {
+        return self.hard_nodes != null or self.soft_nodes != null;
+    }
+};
+
 pub const OutputMode = enum {
     none,
     uci,
@@ -55,6 +84,7 @@ pub const OutputMode = enum {
 
 pub const MessageKind = enum {
     ping,
+    new_game,
     quit,
     output_mode,
     move_format,
@@ -63,12 +93,15 @@ pub const MessageKind = enum {
 
 pub const Message = union(MessageKind) {
     ping: void,
+    new_game: void,
     quit: void,
     output_mode: OutputMode,
     move_format: MoveFormat,
     go: struct {
         game: *Game,
         out: *std.Io.Writer,
+        limits: SearchLimit,
+        search_start: std.Io.Timestamp,
     },
 };
 

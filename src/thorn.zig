@@ -1,10 +1,12 @@
 pub const attacks = @import("thorn/attacks.zig");
 pub const cmd = @import("thorn/cmd.zig");
 pub const movegen = @import("thorn/movegen.zig");
+pub const score = @import("thorn/score.zig");
 pub const util = @import("thorn/util.zig");
 pub const Engine = @import("thorn/Engine.zig");
 pub const Game = @import("thorn/Game.zig");
 pub const Hash = @import("thorn/Hash.zig").Hash;
+pub const Line = @import("thorn/Line.zig");
 pub const Move = @import("thorn/Move.zig").Move;
 pub const MoveList = @import("thorn/MoveList.zig");
 pub const PieceSet = @import("thorn/PieceSet.zig");

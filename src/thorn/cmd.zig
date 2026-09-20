@@ -15,6 +15,8 @@ pub fn processLine(
     game: *Game,
     line: []const u8,
 ) !ShouldQuit {
+    const time_start: std.Io.Timestamp = .now(io, .awake);
+
     var it = std.mem.tokenizeAny(u8, line, " \t\r\n");
     const cmd = it.next() orelse return .next;
     if (std.ascii.eqlIgnoreCase(cmd, "position")) {
@@ -34,7 +36,6 @@ pub fn processLine(
         } else {
             return .next;
         }
-
         if (std.ascii.eqlIgnoreCase(it.next() orelse "", "moves")) {
             while (it.next()) |move_str| {
                 const m = Move.parse(move_str, &game.position) catch break;
@@ -42,18 +43,48 @@ pub fn processLine(
             }
         }
     } else if (std.ascii.eqlIgnoreCase(cmd, "go")) {
-        engine.go(io, out, game);
+        var limits: Engine.SearchLimit = .{};
+        while (it.next()) |part| {
+            if (std.ascii.eqlIgnoreCase(part, "wtime")) {
+                const value = std.fmt.parseUnsigned(u64, it.next() orelse break, 10) catch continue;
+                if (game.position.sideToMove() == .white) limits.base_ms = value;
+            } else if (std.ascii.eqlIgnoreCase(part, "btime")) {
+                const value = std.fmt.parseUnsigned(u64, it.next() orelse break, 10) catch continue;
+                if (game.position.sideToMove() == .black) limits.base_ms = value;
+            } else if (std.ascii.eqlIgnoreCase(part, "winc")) {
+                const value = std.fmt.parseUnsigned(u64, it.next() orelse break, 10) catch continue;
+                if (game.position.sideToMove() == .white) limits.inc_ms = value;
+            } else if (std.ascii.eqlIgnoreCase(part, "binc")) {
+                const value = std.fmt.parseUnsigned(u64, it.next() orelse break, 10) catch continue;
+                if (game.position.sideToMove() == .black) limits.inc_ms = value;
+            } else if (std.ascii.eqlIgnoreCase(part, "movestogo")) {
+                limits.movestogo = std.fmt.parseUnsigned(u64, it.next() orelse break, 10) catch continue;
+            } else if (std.ascii.eqlIgnoreCase(part, "nodes")) {
+                limits.hard_nodes = std.fmt.parseUnsigned(u64, it.next() orelse break, 10) catch continue;
+            } else if (std.ascii.eqlIgnoreCase(part, "softnodes")) {
+                limits.soft_nodes = std.fmt.parseUnsigned(u64, it.next() orelse break, 10) catch continue;
+            } else if (std.ascii.eqlIgnoreCase(part, "depth")) {
+                const value: i32 = std.fmt.parseUnsigned(u31, it.next() orelse break, 10) catch continue;
+                limits.depth = value;
+            }
+        }
+        engine.go(io, out, game, time_start, limits);
     } else if (std.ascii.eqlIgnoreCase(cmd, "uci")) {
         try out.print(
-            \\id name Thorn 0.0
+            \\id name Thorn {s}
             \\id author 87 (87flowers.com)
             \\uciok
             \\
-        , .{});
+        , .{@import("../main.zig").thorn_version});
         try out.flush();
+    } else if (std.ascii.eqlIgnoreCase(cmd, "ucinewgame")) {
+        engine.newGame(io);
+        game.* = .startpos;
     } else if (std.ascii.eqlIgnoreCase(cmd, "isready")) {
         try out.print("readyok\n", .{});
         try out.flush();
+    } else if (std.ascii.eqlIgnoreCase(cmd, "wait")) {
+        engine.wait(io);
     } else if (std.ascii.eqlIgnoreCase(cmd, "d")) {
         try display.run(io, out, &game.position);
     } else if (std.ascii.eqlIgnoreCase(cmd, "perft")) {
