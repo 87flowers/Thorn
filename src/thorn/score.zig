@@ -1,6 +1,7 @@
 pub const Score = i32;
 
 pub const none: Score = -32768;
+pub const infinity: Score = 32767;
 pub const min_score: Score = -32766;
 pub const max_score: Score = 32766;
 
