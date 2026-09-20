@@ -1,3 +1,5 @@
+pub const thorn_version = "0.0";
+
 pub fn main(init: std.process.Init) !void {
     const arena: std.mem.Allocator = init.arena.allocator();
 
@@ -28,6 +30,7 @@ pub fn main(init: std.process.Init) !void {
             .next => {},
             .quit => return,
         }
+        engine.wait(io);
     }
 
     while (try stdin.takeDelimiter('\n')) |line| {

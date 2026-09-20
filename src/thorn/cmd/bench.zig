@@ -8,7 +8,7 @@ pub fn run(io: std.Io, out: *std.Io.Writer, engine: *Engine) !void {
 
     for (fens, 0..) |fen, i| {
         game.setPosition(try Position.parse(fen));
-        engine.go(io, out, &game);
+        engine.go(io, out, &game, .{});
         total_nodes += engine.waitForTotalNodes(io);
         try out.print("{}/{} ...\r", .{ i, fens.len });
         try out.flush();
