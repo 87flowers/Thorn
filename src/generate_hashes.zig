@@ -1,7 +1,7 @@
 /// represents polynomial of size 2^n
 pub fn gf2(comptime n: u4) type {
-    const T = std.meta.Int(.unsigned, n);
-    const PP = std.meta.Int(.unsigned, n + 1);
+    const T = @Int(.unsigned, n);
+    const PP = @Int(.unsigned, n + 1);
     const primitive_polynomial: PP = switch (n) {
         3 => (1 << 3) + (1 << 1) + 1,
         4 => (1 << 4) + (1 << 1) + 1,
@@ -87,7 +87,7 @@ pub fn gf2(comptime n: u4) type {
 }
 
 pub fn MinPoly(comptime n: u4) type {
-    return std.meta.Int(.unsigned, n + 1);
+    return @Int(.unsigned, n + 1);
 }
 
 pub fn MinPolys(comptime n: u4) type {
@@ -95,7 +95,7 @@ pub fn MinPolys(comptime n: u4) type {
 }
 
 pub fn Generator(comptime n: u4) type {
-    return std.meta.Int(.unsigned, 1 << n);
+    return @Int(.unsigned, 1 << n);
 }
 
 pub fn Generators(comptime n: u4) type {
@@ -180,7 +180,7 @@ pub fn rowBits(comptime n: u4) usize {
 }
 
 pub fn Row(comptime n: u4) type {
-    return std.meta.Int(.unsigned, rowBits(n));
+    return @Int(.unsigned, rowBits(n));
 }
 
 pub fn Matrix(comptime n: u4) type {

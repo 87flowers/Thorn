@@ -16,9 +16,12 @@ pub const SquareSet = packed struct {
 
         var result: SquareSet = .empty;
 
-        inline for (args_type_info.@"struct".fields) |field| {
-            if (field.type != Square) @compileError("expected Square, found " ++ @typeName(field.type));
-            const arg: Square = @field(args, field.name);
+        const field_count = args_type_info.@"struct".field_names.len;
+        inline for (0..field_count) |i| {
+            const field_name = args_type_info.@"struct".field_names[i];
+            const field_type = args_type_info.@"struct".field_types[i];
+            if (field_type != Square) @compileError("expected Square, found " ++ @typeName(field_type));
+            const arg: Square = @field(args, field_name);
             result.insert(arg.toSet());
         }
 
