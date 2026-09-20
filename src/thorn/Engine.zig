@@ -31,6 +31,13 @@ pub fn go(self: *Engine, io: std.Io, out: *std.Io.Writer, game: *Game) void {
     self.channel.broadcast(io, &msg);
 }
 
+pub fn waitForTotalNodes(self: *Engine, io: std.Io) u64 {
+    self.wait(io);
+    var total_nodes: u64 = 0;
+    for (self.searches) |*search| total_nodes += search.nodes.load(.monotonic);
+    return total_nodes;
+}
+
 pub fn setOutputMode(self: *Engine, io: std.Io, output_mode: OutputMode) void {
     const msg: Message = .{ .output_mode = output_mode };
     self.channel.broadcast(io, &msg);

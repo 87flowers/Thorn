@@ -24,7 +24,7 @@ pub fn Broadcast(comptime T: type) type {
             const prev: Futex = @bitCast(self.futex.load(.acquire));
             assert(prev.count == 0);
 
-            self.msg.store(msg, .unordered);
+            self.msg.store(msg, .monotonic);
 
             self.futex.store(@bitCast(Futex{
                 .generation = ~prev.generation,
@@ -38,7 +38,7 @@ pub fn Broadcast(comptime T: type) type {
                 io.futexWaitUncancelable(u32, &self.futex.raw, @bitCast(f));
             }
 
-            self.msg.store(null, .unordered);
+            self.msg.store(null, .monotonic);
         }
 
         pub const Receiver = struct {
@@ -58,7 +58,7 @@ pub fn Broadcast(comptime T: type) type {
 
                 self.generation = ~self.generation;
 
-                return self.sender.msg.load(.unordered) orelse unreachable;
+                return self.sender.msg.load(.monotonic) orelse unreachable;
             }
 
             pub fn done(self: *Receiver, io: std.Io) void {

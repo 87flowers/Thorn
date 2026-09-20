@@ -7,6 +7,8 @@ thread: std.Thread,
 output_mode: Engine.OutputMode,
 move_format: MoveFormat,
 
+nodes: std.atomic.Value(u64),
+
 root_position: Position,
 
 pub fn launch(
@@ -53,6 +55,8 @@ fn threadMain(self: *Search) !void {
 }
 
 fn go(self: *Search, out: *std.Io.Writer) !void {
+    self.nodes.store(0, .seq_cst);
+
     const rng_source: std.Random.IoSource = .{ .io = self.io };
     const rng = rng_source.interface();
 
