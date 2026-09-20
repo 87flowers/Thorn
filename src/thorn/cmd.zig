@@ -43,6 +43,17 @@ pub fn processLine(
         }
     } else if (std.ascii.eqlIgnoreCase(cmd, "go")) {
         engine.go(io, out, game);
+    } else if (std.ascii.eqlIgnoreCase(cmd, "uci")) {
+        try out.print(
+            \\id name Thorn 0.0
+            \\id author 87 (87flowers.com)
+            \\uciok
+            \\
+        , .{});
+        try out.flush();
+    } else if (std.ascii.eqlIgnoreCase(cmd, "isready")) {
+        try out.print("readyok\n", .{});
+        try out.flush();
     } else if (std.ascii.eqlIgnoreCase(cmd, "d")) {
         try display.run(io, out, &game.position);
     } else if (std.ascii.eqlIgnoreCase(cmd, "perft")) {

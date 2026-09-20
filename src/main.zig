@@ -26,18 +26,16 @@ pub fn main(init: std.process.Init) !void {
     for (args[1..]) |line| {
         switch (try thorn.cmd.processLine(io, gpa, stdout, &engine, &game, line)) {
             .next => {},
-            .quit => break,
+            .quit => return,
         }
     }
 
     while (try stdin.takeDelimiter('\n')) |line| {
         switch (try thorn.cmd.processLine(io, gpa, stdout, &engine, &game, line)) {
             .next => {},
-            .quit => break,
+            .quit => return,
         }
     }
-
-    try stdout.flush();
 }
 
 test {

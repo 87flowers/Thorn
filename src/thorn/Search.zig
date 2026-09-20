@@ -55,7 +55,7 @@ fn threadMain(self: *Search) !void {
 }
 
 fn go(self: *Search, out: *std.Io.Writer) !void {
-    self.nodes.store(0, .seq_cst);
+    self.nodes.store(1, .seq_cst);
 
     const rng_source: std.Random.IoSource = .{ .io = self.io };
     const rng = rng_source.interface();
