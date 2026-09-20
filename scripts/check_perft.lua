@@ -70,7 +70,7 @@ function comparePerft(fen, move_str, depth)
     end
 
     local s = runPerft({"stockfish"}, "go perft", fen, move_str, depth)
-    local b = runPerft({"./zig-out/bin/thorn"}, "perft", fen, move_str, depth)
+    local b = runPerft({"./thorn"}, "perft", fen, move_str, depth)
 
     local moves = {}
     for k, _ in pairs(s) do
@@ -111,6 +111,7 @@ function drillIntoPerft(fen, max_depth)
     end
 end
 
+drillIntoPerft("rnbq1rk1/pp2bppp/2pp3B/7n/3PP3/2N2Q2/PPP2PPP/R3KBNR b KQ - 3 8", 5)
 drillIntoPerft("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", 6)
 drillIntoPerft("r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1", 5)
 drillIntoPerft("8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1", 6)

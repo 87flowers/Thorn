@@ -3,6 +3,10 @@ pub const max_len: usize = 256;
 len: usize = 0,
 storage: [max_len]Move = undefined,
 
+pub fn clear(self: *Line) void {
+    self.len = 0;
+}
+
 pub fn copyFrom(self: *Line, other: *const Line) void {
     self.len = other.len;
     @memcpy(self.storage[0..other.len], other.storage[0..other.len]);

@@ -90,11 +90,11 @@ pub const Move = packed struct {
                 if (context.enpassant == t) return Move.make(f, t, .enpassant);
                 if ((f.rank().toIndex() ^ t.rank().toIndex()) == 2) return Move.make(f, t, .double_push);
             }
-            if (ptype == .k and context.castling.hasSquare(t)) {
+            if (ptype == .k) {
                 if (context.castling.read(context.sideToMove(), .a) == t) return Move.make(f, t, .castle_aside);
                 if (context.castling.read(context.sideToMove(), .h) == t) return Move.make(f, t, .castle_hside);
-                if (f.file() == .e and t.file() == .c) return Move.make(f, t, .castle_aside);
-                if (f.file() == .e and t.file() == .g) return Move.make(f, t, .castle_hside);
+                if (f.file() == .e and t.file() == .c) return Move.make(f, context.castling.read(context.sideToMove(), .a), .castle_aside);
+                if (f.file() == .e and t.file() == .g) return Move.make(f, context.castling.read(context.sideToMove(), .h), .castle_hside);
             }
             return Move.make(f, t, if (capture) .cap_normal else .normal);
         }

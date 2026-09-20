@@ -173,12 +173,14 @@ fn printInfoLine(self: *Search, out: *std.Io.Writer, depth: i32, s: Score, pv: *
 
 fn searchRoot(self: *Search, ctrl: anytype, depth: i32) Abort!Score {
     _ = self.nodes.rmw(.Add, 1, .monotonic);
+    self.ss(0).pv.clear();
 
     return self.searchBody(ctrl, 0, depth);
 }
 
 fn search(self: *Search, ctrl: anytype, parent_move: Move, ply: i32, depth: i32) Abort!Score {
     _ = self.nodes.rmw(.Add, 1, .monotonic);
+    self.ss(ply).pv.clear();
 
     if (ctrl.checkHardTermination(self) or self.stopping.load(.monotonic)) {
         for (self.searches) |*s| s.stopping.store(true, .monotonic);
