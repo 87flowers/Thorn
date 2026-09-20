@@ -126,7 +126,7 @@ fn go(self: *Search, out: *std.Io.Writer, ctrl: anytype) !void {
 
     var depth: i32 = 1;
     while (depth < max_depth) : (depth += 1) {
-        const s = self.searchRoot(ctrl, @intCast(depth)) catch break;
+        const s = self.searchRoot(ctrl, -score.infinity, score.infinity, @intCast(depth)) catch break;
 
         if (self.stopping.load(.monotonic)) break;
 
@@ -171,14 +171,14 @@ fn printInfoLine(self: *Search, out: *std.Io.Writer, depth: i32, s: Score, pv: *
     try out.flush();
 }
 
-fn searchRoot(self: *Search, ctrl: anytype, depth: i32) Abort!Score {
+fn searchRoot(self: *Search, ctrl: anytype, alpha: Score, beta: Score, depth: i32) Abort!Score {
     _ = self.nodes.rmw(.Add, 1, .monotonic);
     self.ss(0).pv.clear();
 
-    return self.searchBody(ctrl, 0, depth);
+    return self.searchBody(ctrl, alpha, beta, 0, depth);
 }
 
-fn search(self: *Search, ctrl: anytype, parent_move: Move, ply: i32, depth: i32) Abort!Score {
+fn search(self: *Search, ctrl: anytype, parent_move: Move, alpha: Score, beta: Score, ply: i32, depth: i32) Abort!Score {
     _ = self.nodes.rmw(.Add, 1, .monotonic);
     self.ss(ply).pv.clear();
 
@@ -194,20 +194,25 @@ fn search(self: *Search, ctrl: anytype, parent_move: Move, ply: i32, depth: i32)
 
     self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
 
-    return self.searchBody(ctrl, ply, depth);
+    return self.searchBody(ctrl, alpha, beta, ply, depth);
 }
 
-fn searchBody(self: *Search, ctrl: anytype, ply: i32, depth: i32) Abort!Score {
+fn searchBody(self: *Search, ctrl: anytype, initial_alpha: Score, beta: Score, ply: i32, depth: i32) Abort!Score {
+    var alpha = initial_alpha;
+
     var moves: MoveList = .new();
     movegen.all(&moves, &self.ss(ply).position);
 
     var best_score: Score = score.none;
     for (moves.constSlice()) |m| {
-        const s = -try self.search(ctrl, m, ply + 1, depth - 1);
+        const s = -try self.search(ctrl, m, -beta, -alpha, ply + 1, depth - 1);
 
         if (s > best_score) {
             best_score = s;
             self.ss(ply).pv.writeLine(m, &self.ss(ply + 1).pv);
+
+            if (s > alpha) alpha = s;
+            if (s >= beta) break;
         }
     }
 

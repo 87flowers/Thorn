@@ -20,9 +20,9 @@ pub fn push(self: *MoveList, from: Square, to: Square, flags: Move.Flags) void {
 }
 
 pub fn pushSets(self: *MoveList, from: Square, normal_to: SquareSet, cap_to: SquareSet) void {
-    if (intrin.has_compress) {
-        const to = normal_to.bitOr(cap_to);
+    const to = normal_to.bitOr(cap_to);
 
+    if (intrin.has_compress) {
         const build_template = struct {
             fn build_template(comptime start: u16, comptime flag: Move.Flags) @Vector(32, u16) {
                 var result: @Vector(32, u16) = undefined;
@@ -58,10 +58,8 @@ pub fn pushSets(self: *MoveList, from: Square, normal_to: SquareSet, cap_to: Squ
             self.len += @popCount(m1);
         }
     } else {
-        var normal_iter = normal_to.iter();
-        while (normal_iter.next()) |sq| self.push(from, sq, .normal);
-        var cap_iter = cap_to.iter();
-        while (cap_iter.next()) |sq| self.push(from, sq, .cap_normal);
+        var iter = to.iter();
+        while (iter.next()) |sq| self.push(from, sq, if (cap_to.read(sq)) .cap_normal else .normal);
     }
 }
 
