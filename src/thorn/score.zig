@@ -4,6 +4,7 @@ pub const none: Score = -32768;
 pub const infinity: Score = 32767;
 pub const min_score: Score = -32766;
 pub const max_score: Score = 32766;
+pub const draw: Score = 0;
 
 pub const max_mate_ply = 256;
 pub const min_normal_score = min_score + (max_mate_ply + 1);

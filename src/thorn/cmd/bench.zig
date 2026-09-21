@@ -21,7 +21,7 @@ pub fn run(io: std.Io, out: *std.Io.Writer, engine: *Engine) !void {
     try out.flush();
 }
 
-const bench_depth = 5;
+const bench_depth = 6;
 
 const fens = [_][]const u8{
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
