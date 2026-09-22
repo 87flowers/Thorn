@@ -157,7 +157,7 @@ fn generatePawnPushes(comptime subset: Subset, moves: *MoveList, position: *cons
     if (subset.isQuiet()) if (home_double != 0) moves.pushPawnRank(home_base, home_double, double_push, stm, .double_push);
     if (subset.isQuiet()) if (body != 0) moves.pushPawnBody(body, stm);
     if (promoable != 0) {
-        if (subset.isNoisy()) moves.pushPawnRank(promoable_base, promoable, push, stm, .promo_q);
+        if (subset.isQuiet()) moves.pushPawnRank(promoable_base, promoable, push, stm, .promo_q);
         if (subset.isQuiet()) moves.pushPawnRank(promoable_base, promoable, push, stm, .promo_n);
         if (subset.isQuiet()) moves.pushPawnRank(promoable_base, promoable, push, stm, .promo_r);
         if (subset.isQuiet()) moves.pushPawnRank(promoable_base, promoable, push, stm, .promo_b);
