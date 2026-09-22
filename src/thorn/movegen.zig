@@ -39,7 +39,7 @@ fn generateEnpassant(moves: *MoveList, position: *const Position) void {
         const king = position.kingSq(stm);
         if (king.rank() == victim.rank()) {
             const occ = position.occupiedSet().bitAnd(victim.toSet().bitOr(attacker.toSet()).bitNot());
-            const enemy_rooks = position.coloredPtypeSet(stm.invert(), .r);
+            const enemy_rooks = position.coloredPtypeSet(stm.invert(), .r).bitOr(position.coloredPtypeSet(stm.invert(), .q));
             // Detect if en passant attacker is clearance pinned
             if (!attacks.rook(occ, king).bitAnd(enemy_rooks).isEmpty()) return;
         }

@@ -60,6 +60,8 @@ fn threadMain(self: *Search) !void {
                 self.channel.done(self.io);
             },
             .go => |*m| {
+                const out = m.out;
+
                 self.search_start = m.search_start;
                 self.root_position = m.game.position;
                 self.nodes.store(0, .monotonic);
@@ -86,12 +88,12 @@ fn threadMain(self: *Search) !void {
                                 ctrl.nodes_limit.hard = m.limits.hard_nodes;
                             }
                             self.channel.done(self.io);
-                            try self.go(m.out, &ctrl);
+                            try self.go(out, &ctrl);
                         },
                     }
                 } else {
                     self.channel.done(self.io);
-                    try self.go(m.out, &control.none);
+                    try self.go(out, &control.none);
                 }
             },
         }

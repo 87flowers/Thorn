@@ -348,6 +348,7 @@ pub fn move(noalias self: *const Position, noalias new_pos: *Position, m: Move) 
     }
 
     new_pos.ply += 1;
+    new_pos.ply_since_null += 1;
 }
 
 fn removePiece(self: *Position, sq: Square, piece: Piece, id: PieceId) void {
