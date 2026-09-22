@@ -15,6 +15,9 @@ nodes: std.atomic.Value(u64),
 
 search_start: std.Io.Timestamp,
 root_position: Position,
+
+hash_stack: StaticVec(Hash, 103 + max_depth),
+hash_waterline: usize,
 stack: [max_depth + stack_offset + 3]Stack,
 
 eval: Eval,
@@ -64,6 +67,10 @@ fn threadMain(self: *Search) !void {
 
                 self.search_start = m.search_start;
                 self.root_position = m.game.position;
+                self.hash_waterline = m.game.hash_stack.len;
+                self.hash_stack.len = m.game.hash_stack.len;
+                @memcpy(self.hash_stack.storage[0..self.hash_stack.len], m.game.hash_stack.storage[0..self.hash_stack.len]);
+
                 self.nodes.store(0, .monotonic);
                 self.stopping.store(false, .monotonic);
 
@@ -186,10 +193,13 @@ fn searchRoot(self: *Search, ctrl: anytype, alpha: Score, beta: Score, depth: i3
 }
 
 fn search(self: *Search, ctrl: anytype, parent_move: Move, alpha: Score, beta: Score, ply: i32, depth: i32) Abort!Score {
-    const parent_position = &self.ss(ply - 1).position;
+    const parent_position: *const Position = &self.ss(ply - 1).position;
 
     _ = self.nodes.rmw(.Add, 1, .monotonic);
     self.ss(ply).pv.clear();
+
+    self.hash_stack.push(self.hash_stack.back().move(parent_position, parent_move));
+    defer self.hash_stack.pop();
 
     if (ctrl.checkHardTermination(self) or self.stopping.load(.monotonic)) {
         for (self.searches) |*s| s.stopping.store(true, .monotonic);
@@ -202,6 +212,13 @@ fn search(self: *Search, ctrl: anytype, parent_move: Move, alpha: Score, beta: S
     if (depth <= 0 or ply >= max_depth) {
         return self.eval.evaluation();
     }
+
+    const new_fifty_move_clock: u16 = if (parent_move.isCapture() or parent_position.ptypeAt(parent_move.from()) == .p)
+        0
+    else
+        parent_position.fifty_move_clock + 1;
+    const new_ply_since_null = if (parent_move.isSome()) parent_position.ply_since_null + 1 else 0;
+    if (new_fifty_move_clock >= 100 or self.isThreeFoldDraw(@min(new_ply_since_null, new_fifty_move_clock))) return score.draw;
 
     self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
 
@@ -233,6 +250,23 @@ fn searchBody(self: *Search, ctrl: anytype, initial_alpha: Score, beta: Score, p
     return best_score;
 }
 
+fn isThreeFoldDraw(self: *Search, end: usize) bool {
+    const height = self.hash_stack.len - 1;
+    const current_hash = self.hash_stack.storage[height];
+
+    var clones: usize = 0;
+    var i: usize = 4;
+    while (i <= end) : (i += 2) {
+        const h = self.hash_stack.storage[height - i];
+        if (h == current_hash) {
+            const clone_limit: usize = if ((height - i) < self.hash_waterline) 2 else 1;
+            clones += 1;
+            if (clones >= clone_limit) return true;
+        }
+    }
+    return false;
+}
+
 fn ss(self: *Search, ply: i32) *Stack {
     return &self.stack[@intCast(ply + stack_offset)];
 }
@@ -250,9 +284,11 @@ const Broadcast = thorn.util.Broadcast;
 const Color = thorn.Color;
 const Engine = thorn.Engine;
 const Eval = thorn.Eval;
+const Hash = thorn.Hash;
 const Line = thorn.Line;
 const Move = thorn.Move;
 const MoveFormat = thorn.MoveFormat;
 const MoveList = thorn.MoveList;
 const Position = thorn.Position;
 const Score = thorn.score.Score;
+const StaticVec = thorn.util.StaticVec;
