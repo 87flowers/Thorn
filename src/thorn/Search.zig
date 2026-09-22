@@ -190,10 +190,10 @@ fn searchRoot(self: *Search, ctrl: anytype, alpha: Score, beta: Score, depth: i3
     _ = self.nodes.rmw(.Add, 1, .monotonic);
     self.ss(0).pv.clear();
 
-    return self.searchBody(ctrl, alpha, beta, 0, depth);
+    return self.searchBody(.pv, ctrl, alpha, beta, 0, depth);
 }
 
-fn search(self: *Search, ctrl: anytype, parent_move: Move, alpha: Score, beta: Score, ply: i32, depth: i32) Abort!Score {
+fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move: Move, alpha: Score, beta: Score, ply: i32, depth: i32) Abort!Score {
     const parent_position: *const Position = &self.ss(ply - 1).position;
 
     _ = self.nodes.rmw(.Add, 1, .monotonic);
@@ -223,17 +223,24 @@ fn search(self: *Search, ctrl: anytype, parent_move: Move, alpha: Score, beta: S
 
     self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
 
-    return self.searchBody(ctrl, alpha, beta, ply, depth);
+    return self.searchBody(expected, ctrl, alpha, beta, ply, depth);
 }
 
-fn searchBody(self: *Search, ctrl: anytype, initial_alpha: Score, beta: Score, ply: i32, depth: i32) Abort!Score {
+fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, initial_alpha: Score, beta: Score, ply: i32, depth: i32) Abort!Score {
     var alpha = initial_alpha;
 
     var moves: MoveSelector = .new(&self.ss(ply).position);
 
+    var searched_moves: usize = 0;
     var best_score: Score = score.none;
     while (moves.next()) |m| {
-        const s = -try self.search(ctrl, m, -beta, -alpha, ply + 1, depth - 1);
+        searched_moves += 1;
+
+        var s: Score = undefined;
+        if (expected != .pv or searched_moves > 1)
+            s = -try self.search(expected.next(), ctrl, m, -alpha - 1, -alpha, ply + 1, depth - 1);
+        if (expected == .pv and (searched_moves == 1 or s > alpha))
+            s = -try self.search(.pv, ctrl, m, -beta, -alpha, ply + 1, depth - 1);
 
         if (s > best_score) {
             best_score = s;
@@ -287,6 +294,7 @@ const Hash = thorn.Hash;
 const Line = thorn.Line;
 const Move = thorn.Move;
 const MoveFormat = thorn.MoveFormat;
+const NodeKind = thorn.NodeKind;
 const Position = thorn.Position;
 const Score = thorn.score.Score;
 const StaticVec = thorn.util.StaticVec;
