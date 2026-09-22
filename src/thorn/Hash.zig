@@ -50,7 +50,7 @@ pub const Hash = enum(u64) {
             .enpassant => {
                 new_hash.togglePtype(stm, .p, from);
                 new_hash.togglePtype(stm, .p, to);
-                new_hash.togglePtype(stm.invert(), .p, to);
+                new_hash.togglePtype(stm.invert(), .p, to.toggleRankLsb());
             },
             .castle_aside => {
                 const king_src = from;

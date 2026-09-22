@@ -4,6 +4,7 @@ pub const movegen = @import("thorn/movegen.zig");
 pub const score = @import("thorn/score.zig");
 pub const util = @import("thorn/util.zig");
 pub const Engine = @import("thorn/Engine.zig");
+pub const Eval = @import("thorn/Eval.zig");
 pub const Game = @import("thorn/Game.zig");
 pub const Hash = @import("thorn/Hash.zig").Hash;
 pub const Line = @import("thorn/Line.zig");
@@ -333,6 +334,10 @@ pub const Square = enum(u8) {
 
     pub fn toggleRankLsb(self: Square) Square {
         return @enumFromInt(@intFromEnum(self) ^ 0x08);
+    }
+
+    pub fn flipColor(self: Square) Square {
+        return @enumFromInt(@intFromEnum(self) ^ 0x38);
     }
 
     // Caller has ownership of string

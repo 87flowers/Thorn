@@ -21,6 +21,11 @@ pub fn StaticVec(comptime T: type, comptime capacity: usize) type {
             self.len += 1;
         }
 
+        pub fn pop(self: *Self) void {
+            assert(self.len > 0);
+            self.len -= 1;
+        }
+
         pub fn constSlice(self: *const Self) []const T {
             return self.storage[0..self.len];
         }
