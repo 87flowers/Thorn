@@ -1,8 +1,10 @@
 stage: enum {
-    move_gen,
-    emit,
+    movegen_noisy,
+    emit_noisy,
+    movegen_quiet,
+    emit_quiet,
     end,
-} = .move_gen,
+} = .movegen_noisy,
 
 moves: MoveList = .new(),
 position: *const Position,
@@ -16,15 +18,30 @@ pub fn new(position: *const Position) MoveSelector {
 
 pub fn next(self: *MoveSelector) ?Move {
     sw: switch (self.stage) {
-        .move_gen => {
-            movegen.all(&self.moves, self.position);
-            self.orderMoves();
+        .movegen_noisy => {
+            self.moves.clear();
+            movegen.noisy(&self.moves, self.position);
+            self.orderNoisyMoves();
 
             self.current = 0;
-            self.stage = .emit;
-            continue :sw .emit;
+            continue :sw .emit_noisy;
         },
-        .emit => {
+        .emit_noisy => {
+            self.stage = .emit_noisy;
+            if (self.current >= self.moves.len) continue :sw .movegen_quiet;
+            const m = self.moves.storage[self.current];
+            self.current += 1;
+            return m;
+        },
+        .movegen_quiet => {
+            self.moves.clear();
+            movegen.quiet(&self.moves, self.position);
+
+            self.current = 0;
+            continue :sw .emit_quiet;
+        },
+        .emit_quiet => {
+            self.stage = .emit_quiet;
             if (self.current >= self.moves.len) continue :sw .end;
             const m = self.moves.storage[self.current];
             self.current += 1;
@@ -37,18 +54,14 @@ pub fn next(self: *MoveSelector) ?Move {
     }
 }
 
-fn orderMoves(self: *MoveSelector) void {
+fn orderNoisyMoves(self: *MoveSelector) void {
     var scores: [MoveList.capacity]i32 = undefined;
 
     for (0..self.moves.len) |i| {
         const m = self.moves.storage[i];
         const src_ptype = self.position.whatAt(m.from()).ptype();
         const dst_ptype = self.position.whatAt(m.to()).ptype();
-        scores[i] = blk: {
-            if (m.isCapture())
-                break :blk @as(i32, 125 << 24) + mvv_table[dst_ptype.toIndex()] - lva_table[src_ptype.toIndex()];
-            break :blk 0;
-        };
+        scores[i] = mvv_table[dst_ptype.toIndex()] - lva_table[src_ptype.toIndex()];
     }
 
     self.sort(&scores);

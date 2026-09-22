@@ -1,30 +1,40 @@
 pub fn all(moves: *MoveList, position: *const Position) void {
-    return generateMoves(moves, position);
+    return generateMoves(.all, moves, position);
 }
 
-fn generateMoves(moves: *MoveList, position: *const Position) void {
+pub fn noisy(moves: *MoveList, position: *const Position) void {
+    return generateMoves(.noisy, moves, position);
+}
+
+pub fn quiet(moves: *MoveList, position: *const Position) void {
+    return generateMoves(.quiet, moves, position);
+}
+
+fn generateMoves(comptime subset: Subset, moves: *MoveList, position: *const Position) void {
     @constCast(position).calculateDanger();
     const checkers = position.checkers();
     switch (checkers.popcount()) {
         0 => {
-            generateEnpassant(moves, position);
-            generateMostMoves(moves, position, SquareSet.all);
-            generateCastling(moves, position);
-            generateKingMoves(moves, position);
+            generateEnpassant(subset, moves, position);
+            generateMostMoves(subset, moves, position, SquareSet.all);
+            generateCastling(subset, moves, position);
+            generateKingMoves(subset, moves, position);
         },
         1 => {
             const checker = checkers.lsb();
             const stm = position.sideToMove();
             const king = position.kingSq(stm);
-            if (position.whatIs(stm.invert(), checker) == .p) generateEnpassant(moves, position);
-            generateMostMoves(moves, position, SquareSet.rayExclusiveInclusive(king, position.whereIs(stm.invert(), checker)));
-            generateKingMoves(moves, position);
+            if (position.whatIs(stm.invert(), checker) == .p) generateEnpassant(subset, moves, position);
+            generateMostMoves(subset, moves, position, SquareSet.rayExclusiveInclusive(king, position.whereIs(stm.invert(), checker)));
+            generateKingMoves(subset, moves, position);
         },
-        else => generateKingMoves(moves, position),
+        else => generateKingMoves(subset, moves, position),
     }
 }
 
-fn generateEnpassant(moves: *MoveList, position: *const Position) void {
+fn generateEnpassant(comptime subset: Subset, moves: *MoveList, position: *const Position) void {
+    if (!subset.isNoisy()) return;
+
     const stm = position.sideToMove();
 
     const ep = position.enpassant;
@@ -54,7 +64,7 @@ fn generateEnpassant(moves: *MoveList, position: *const Position) void {
     }
 }
 
-fn generateMostMoves(moves: *MoveList, position: *const Position, valid_destinations: SquareSet) void {
+fn generateMostMoves(comptime subset: Subset, moves: *MoveList, position: *const Position, valid_destinations: SquareSet) void {
     const stm = position.sideToMove();
     const empty = position.occupiedSet().bitNot();
     const enemy = position.colorSet(stm.invert());
@@ -68,22 +78,28 @@ fn generateMostMoves(moves: *MoveList, position: *const Position, valid_destinat
     while (iter.next()) |id| {
         const from = position.whereIs(stm, id);
         const to = position.masked_attack_set[id.toIndex()];
-        moves.pushSets(from, to.bitAnd(valid_empty), to.bitAnd(valid_enemy));
+        switch (subset) {
+            .all => moves.pushSets(from, to.bitAnd(valid_empty), to.bitAnd(valid_enemy)),
+            .noisy => moves.pushSet(from, to.bitAnd(valid_enemy), .cap_normal),
+            .quiet => moves.pushSet(from, to.bitAnd(valid_empty), .normal),
+        }
     }
 
     switch (stm) {
         .white => {
-            generatePawnCaptures(moves, position, valid_destinations, .white);
-            generatePawnPushes(moves, position, valid_destinations, .white);
+            generatePawnCaptures(subset, moves, position, valid_destinations, .white);
+            generatePawnPushes(subset, moves, position, valid_destinations, .white);
         },
         .black => {
-            generatePawnCaptures(moves, position, valid_destinations, .black);
-            generatePawnPushes(moves, position, valid_destinations, .black);
+            generatePawnCaptures(subset, moves, position, valid_destinations, .black);
+            generatePawnPushes(subset, moves, position, valid_destinations, .black);
         },
     }
 }
 
-fn generatePawnCaptures(moves: *MoveList, position: *const Position, valid_destinations: SquareSet, comptime stm: Color) void {
+fn generatePawnCaptures(comptime subset: Subset, moves: *MoveList, position: *const Position, valid_destinations: SquareSet, comptime stm: Color) void {
+    if (!subset.isNoisy()) return;
+
     const king = position.kingSq(stm);
     const enemy = position.colorSet(stm.invert());
     const valid_enemy = enemy.bitAnd(valid_destinations);
@@ -119,7 +135,7 @@ fn generatePawnCaptures(moves: *MoveList, position: *const Position, valid_desti
     }
 }
 
-fn generatePawnPushes(moves: *MoveList, position: *const Position, valid_destinations: SquareSet, comptime stm: Color) void {
+fn generatePawnPushes(comptime subset: Subset, moves: *MoveList, position: *const Position, valid_destinations: SquareSet, comptime stm: Color) void {
     const king = position.kingSq(stm);
     const empty = position.occupiedSet().bitNot();
     const valid_empty = empty.bitAnd(valid_destinations);
@@ -137,25 +153,27 @@ fn generatePawnPushes(moves: *MoveList, position: *const Position, valid_destina
     };
     const body: u32 = @truncate(pawns_ok_single.raw >> 16);
 
-    if (home_single != 0) moves.pushPawnRank(home_base, home_single, push, stm, .normal);
-    if (home_double != 0) moves.pushPawnRank(home_base, home_double, double_push, stm, .double_push);
-    if (body != 0) moves.pushPawnBody(body, stm);
+    if (subset.isQuiet()) if (home_single != 0) moves.pushPawnRank(home_base, home_single, push, stm, .normal);
+    if (subset.isQuiet()) if (home_double != 0) moves.pushPawnRank(home_base, home_double, double_push, stm, .double_push);
+    if (subset.isQuiet()) if (body != 0) moves.pushPawnBody(body, stm);
     if (promoable != 0) {
-        moves.pushPawnRank(promoable_base, promoable, push, stm, .promo_q);
-        moves.pushPawnRank(promoable_base, promoable, push, stm, .promo_n);
-        moves.pushPawnRank(promoable_base, promoable, push, stm, .promo_r);
-        moves.pushPawnRank(promoable_base, promoable, push, stm, .promo_b);
+        if (subset.isNoisy()) moves.pushPawnRank(promoable_base, promoable, push, stm, .promo_q);
+        if (subset.isQuiet()) moves.pushPawnRank(promoable_base, promoable, push, stm, .promo_n);
+        if (subset.isQuiet()) moves.pushPawnRank(promoable_base, promoable, push, stm, .promo_r);
+        if (subset.isQuiet()) moves.pushPawnRank(promoable_base, promoable, push, stm, .promo_b);
     }
 }
 
-fn generateCastling(moves: *MoveList, position: *const Position) void {
+fn generateCastling(comptime subset: Subset, moves: *MoveList, position: *const Position) void {
+    if (!subset.isQuiet()) return;
+
     const stm = position.sideToMove();
     if (!position.castling.hasColor(stm)) return;
     if (position.isCastleLegalAssumeNoCheck(.a)) moves.push(position.kingSq(stm), position.castling.read(stm, .a), .castle_aside);
     if (position.isCastleLegalAssumeNoCheck(.h)) moves.push(position.kingSq(stm), position.castling.read(stm, .h), .castle_hside);
 }
 
-fn generateKingMoves(moves: *MoveList, position: *const Position) void {
+fn generateKingMoves(comptime subset: Subset, moves: *MoveList, position: *const Position) void {
     const stm = position.sideToMove();
     const danger = position.danger;
     const empty = position.occupiedSet().bitNot();
@@ -164,8 +182,26 @@ fn generateKingMoves(moves: *MoveList, position: *const Position) void {
     const king = position.kingSq(stm);
     const safe_attacks = position.masked_attack_set[0].bitAndNot(danger);
 
-    moves.pushSets(king, safe_attacks.bitAnd(empty), safe_attacks.bitAnd(enemy));
+    switch (subset) {
+        .all => moves.pushSets(king, safe_attacks.bitAnd(empty), safe_attacks.bitAnd(enemy)),
+        .noisy => moves.pushSet(king, safe_attacks.bitAnd(enemy), .cap_normal),
+        .quiet => moves.pushSet(king, safe_attacks.bitAnd(empty), .normal),
+    }
 }
+
+const Subset = enum {
+    all,
+    noisy,
+    quiet,
+
+    fn isNoisy(comptime self: Subset) bool {
+        return self != .quiet;
+    }
+
+    fn isQuiet(comptime self: Subset) bool {
+        return self != .noisy;
+    }
+};
 
 const thorn = @import("../thorn.zig");
 const attacks = thorn.attacks;

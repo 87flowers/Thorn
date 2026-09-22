@@ -10,6 +10,10 @@ pub fn new() MoveList {
     };
 }
 
+pub fn clear(self: *MoveList) void {
+    self.len = 0;
+}
+
 pub fn constSlice(self: *const MoveList) []const Move {
     return self.storage[0..self.len];
 }
@@ -60,6 +64,41 @@ pub fn pushSets(self: *MoveList, from: Square, normal_to: SquareSet, cap_to: Squ
     } else {
         var iter = to.iter();
         while (iter.next()) |sq| self.push(from, sq, if (cap_to.read(sq)) .cap_normal else .normal);
+    }
+}
+
+pub fn pushSet(self: *MoveList, from: Square, to: SquareSet, comptime flag: Move.Flags) void {
+    if (intrin.has_compress) {
+        const build_template = struct {
+            fn build_template(comptime start: u16, comptime f: Move.Flags) @Vector(32, u16) {
+                var result: @Vector(32, u16) = undefined;
+                inline for (0..32) |i| result[i] = (i + start) << 6 | @intFromEnum(f);
+                return result;
+            }
+        }.build_template;
+
+        const template0 = build_template(0, flag);
+        const template1 = build_template(32, flag);
+
+        const other: @Vector(32, u16) = @splat(@intFromEnum(from));
+
+        const m0: u32 = @truncate(to.raw);
+        const m1: u32 = @truncate(to.raw >> 32);
+
+        const c0 = intrin.compress(m0, template0 | other);
+        const c1 = intrin.compress(m1, template1 | other);
+
+        if (m0 != 0) {
+            @memcpy(self.storage[self.len .. self.len + 32], @as([32]Move, @bitCast(c0))[0..32]);
+            self.len += @popCount(m0);
+        }
+        if (m1 != 0) {
+            @memcpy(self.storage[self.len .. self.len + 32], @as([32]Move, @bitCast(c1))[0..32]);
+            self.len += @popCount(m1);
+        }
+    } else {
+        var iter = to.iter();
+        while (iter.next()) |sq| self.push(from, sq, flag);
     }
 }
 
