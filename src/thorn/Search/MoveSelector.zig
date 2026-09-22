@@ -10,10 +10,23 @@ moves: MoveList = .new(),
 position: *const Position,
 current: usize = 0,
 
+skip_quiet: bool = false,
+
 pub fn new(position: *const Position) MoveSelector {
     return .{
         .position = position,
     };
+}
+
+pub fn skipQuiet(self: *MoveSelector) void {
+    self.stage = switch (self.stage) {
+        .movegen_noisy => .movegen_noisy,
+        .emit_noisy => .emit_noisy,
+        .movegen_quiet => .end,
+        .emit_quiet => .end,
+        .end => .end,
+    };
+    self.skip_quiet = true;
 }
 
 pub fn next(self: *MoveSelector) ?Move {
@@ -34,6 +47,8 @@ pub fn next(self: *MoveSelector) ?Move {
             return m;
         },
         .movegen_quiet => {
+            if (self.skip_quiet) continue :sw .end;
+
             self.moves.clear();
             movegen.quiet(&self.moves, self.position);
 
