@@ -67,17 +67,17 @@ pub const Color = enum(u1) {
 };
 
 pub const PieceType = enum(u8) {
-    none = 0,
+    p = 0b00000001,
+    n = 0b00000010,
+    b = 0b00000100,
+    r = 0b00001000,
+    q = 0b00010000,
+    k = 0b00100000,
 
-    p = 0b000001,
-    n = 0b000010,
-    b = 0b000100,
-    r = 0b001000,
-    q = 0b010000,
-    k = 0b100000,
+    none = 0b01000000,
 
-    pub const slider: u8 = 0b011100;
-    pub const officer: u8 = 0b011110;
+    pub const slider: u8 = 0b00011100;
+    pub const officer: u8 = 0b00011110;
 
     pub fn isSome(self: PieceType) bool {
         return self != .none;
@@ -88,7 +88,7 @@ pub const PieceType = enum(u8) {
     }
 
     pub fn toIndex(self: PieceType) usize {
-        assert(self.isSome());
+        assert(@popCount(@intFromEnum(self)) == 1);
         return @ctz(@intFromEnum(self));
     }
 
@@ -101,10 +101,7 @@ pub const PieceType = enum(u8) {
     }
 
     pub fn toChar(self: PieceType) u8 {
-        if (self.isNone()) {
-            return '.';
-        }
-        return "pnbrqk"[self.toIndex()];
+        return "pnbrqk."[self.toIndex()];
     }
 
     pub fn splat(self: PieceType, comptime size: usize) @Vector(size, u8) {
@@ -117,7 +114,6 @@ pub const PieceType = enum(u8) {
 };
 
 pub const Piece = enum(u8) {
-    none = 0,
     wp = 0b00000001,
     wn = 0b00000010,
     wb = 0b00000100,
@@ -130,6 +126,8 @@ pub const Piece = enum(u8) {
     br = 0b10001000,
     bq = 0b10010000,
     bk = 0b10100000,
+
+    none = 0b01000000,
 
     pub fn make(c: Color, pt: PieceType) Piece {
         const color_bit = @as(u8, @intFromEnum(c)) << 7;
@@ -153,12 +151,9 @@ pub const Piece = enum(u8) {
     }
 
     pub fn toChar(self: Piece) u8 {
-        if (self.isNone()) {
-            return '.';
-        }
         return switch (self.color()) {
-            .white => "PNBRQK",
-            .black => "pnbrqk",
+            .white => "PNBRQK.",
+            .black => "pnbrqk.",
         }[self.ptype().toIndex()];
     }
 
