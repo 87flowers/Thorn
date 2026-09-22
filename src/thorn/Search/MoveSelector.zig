@@ -42,8 +42,11 @@ fn orderMoves(self: *MoveSelector) void {
 
     for (0..self.moves.len) |i| {
         const m = self.moves.storage[i];
+        const src_ptype = self.position.whatAt(m.from()).ptype();
+        const dst_ptype = self.position.whatAt(m.to()).ptype();
         scores[i] = blk: {
-            if (m.isCapture()) break :blk 125 << 24;
+            if (m.isCapture())
+                break :blk @as(i32, 125 << 24) + mvv_table[dst_ptype.toIndex()] - lva_table[src_ptype.toIndex()];
             break :blk 0;
         };
     }
@@ -67,6 +70,9 @@ fn sort(self: *MoveSelector, scores: []i32) void {
     };
     std.sort.heapContext(0, self.moves.len, Context{ .ml = &self.moves, .scores = scores });
 }
+
+const mvv_table: [7]i32 = .{ 800, 2400, 2400, 4000, 7200, 100000, 100 };
+const lva_table: [6]i32 = .{ 100, 300, 300, 500, 900, 100000 };
 
 const MoveSelector = @This();
 const std = @import("std");
