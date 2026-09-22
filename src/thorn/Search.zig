@@ -1,4 +1,5 @@
 pub const control = @import("./Search/control.zig");
+pub const MoveSelector = @import("./Search/MoveSelector.zig");
 pub const Stack = @import("./Search/Stack.zig");
 
 io: std.Io,
@@ -228,11 +229,10 @@ fn search(self: *Search, ctrl: anytype, parent_move: Move, alpha: Score, beta: S
 fn searchBody(self: *Search, ctrl: anytype, initial_alpha: Score, beta: Score, ply: i32, depth: i32) Abort!Score {
     var alpha = initial_alpha;
 
-    var moves: MoveList = .new();
-    movegen.all(&moves, &self.ss(ply).position);
+    var moves: MoveSelector = .new(&self.ss(ply).position);
 
     var best_score: Score = score.none;
-    for (moves.constSlice()) |m| {
+    while (moves.next()) |m| {
         const s = -try self.search(ctrl, m, -beta, -alpha, ply + 1, depth - 1);
 
         if (s > best_score) {
@@ -278,7 +278,6 @@ const Abort = error{Abort};
 const Search = @This();
 const std = @import("std");
 const thorn = @import("../thorn.zig");
-const movegen = thorn.movegen;
 const score = thorn.score;
 const Broadcast = thorn.util.Broadcast;
 const Color = thorn.Color;
@@ -288,7 +287,6 @@ const Hash = thorn.Hash;
 const Line = thorn.Line;
 const Move = thorn.Move;
 const MoveFormat = thorn.MoveFormat;
-const MoveList = thorn.MoveList;
 const Position = thorn.Position;
 const Score = thorn.score.Score;
 const StaticVec = thorn.util.StaticVec;
