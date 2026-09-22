@@ -17,6 +17,10 @@ search_start: std.Io.Timestamp,
 root_position: Position,
 stack: [max_depth + stack_offset + 3]Stack,
 
+eval: Eval,
+
+pub const max_depth = 240;
+
 pub fn launch(
     self: *Search,
     io: std.Io,
@@ -123,6 +127,7 @@ fn go(self: *Search, out: *std.Io.Writer, ctrl: anytype) !void {
     var last_depth: i32 = -1;
 
     self.ss(0).position = self.root_position;
+    self.eval.reset(&self.root_position);
 
     var depth: i32 = 1;
     while (depth < max_depth) : (depth += 1) {
@@ -179,6 +184,8 @@ fn searchRoot(self: *Search, ctrl: anytype, alpha: Score, beta: Score, depth: i3
 }
 
 fn search(self: *Search, ctrl: anytype, parent_move: Move, alpha: Score, beta: Score, ply: i32, depth: i32) Abort!Score {
+    const parent_position = &self.ss(ply - 1).position;
+
     _ = self.nodes.rmw(.Add, 1, .monotonic);
     self.ss(ply).pv.clear();
 
@@ -187,9 +194,11 @@ fn search(self: *Search, ctrl: anytype, parent_move: Move, alpha: Score, beta: S
         return Abort.Abort;
     }
 
+    self.eval.push(parent_position, parent_move);
+    defer self.eval.pop();
+
     if (depth <= 0 or ply >= max_depth) {
-        self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
-        return self.evaluate(ply);
+        return self.eval.evaluation();
     }
 
     self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
@@ -222,30 +231,10 @@ fn searchBody(self: *Search, ctrl: anytype, initial_alpha: Score, beta: Score, p
     return best_score;
 }
 
-fn evaluate(self: *Search, ply: i32) Score {
-    const position: *const Position = &self.ss(ply).position;
-    return switch (position.sideToMove()) {
-        .white => self.evaluateSide(ply, .white) - self.evaluateSide(ply, .black),
-        .black => self.evaluateSide(ply, .black) - self.evaluateSide(ply, .white),
-    };
-}
-
-fn evaluateSide(self: *Search, ply: i32, color: Color) Score {
-    const position: *const Position = &self.ss(ply).position;
-    var eval: Score = 0;
-    eval += position.coloredPtypeSet(color, .p).popcount() * 100;
-    eval += position.coloredPtypeSet(color, .n).popcount() * 300;
-    eval += position.coloredPtypeSet(color, .b).popcount() * 300;
-    eval += position.coloredPtypeSet(color, .r).popcount() * 500;
-    eval += position.coloredPtypeSet(color, .q).popcount() * 900;
-    return eval;
-}
-
 fn ss(self: *Search, ply: i32) *Stack {
     return &self.stack[@intCast(ply + stack_offset)];
 }
 
-const max_depth = 240;
 const stack_offset = 7;
 
 const Abort = error{Abort};
@@ -258,6 +247,7 @@ const score = thorn.score;
 const Broadcast = thorn.util.Broadcast;
 const Color = thorn.Color;
 const Engine = thorn.Engine;
+const Eval = thorn.Eval;
 const Line = thorn.Line;
 const Move = thorn.Move;
 const MoveFormat = thorn.MoveFormat;
