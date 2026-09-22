@@ -30,6 +30,22 @@ pub const MoveFormat = enum {
     frc,
 };
 
+pub const NodeKind = enum {
+    none,
+    all,
+    pv,
+    cut,
+
+    pub fn next(self: NodeKind) NodeKind {
+        return switch (self) {
+            .none => .none,
+            .all => .cut,
+            .pv => .cut,
+            .cut => .all,
+        };
+    }
+};
+
 pub const Color = enum(u1) {
     white = 0,
     black = 1,
