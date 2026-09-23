@@ -1,19 +1,22 @@
 channel: *Broadcast(Message),
 searches: []Search,
+cache: Cache,
 
 pub fn init(io: std.Io, gpa: std.mem.Allocator) !Engine {
     var self: Engine = .{
         .channel = try gpa.create(Broadcast(Message)),
         .searches = try gpa.alloc(Search, 1),
+        .cache = try Cache.init(gpa),
     };
     self.channel.reset(1);
     for (self.searches, 0..) |*search, i|
-        try search.launch(io, gpa, i, self.searches, self.channel.createReceiver());
+        try search.launch(io, gpa, i, self.searches, &self.cache, self.channel.createReceiver());
     return self;
 }
 
 pub fn deinit(self: *Engine, io: std.Io, gpa: std.mem.Allocator) void {
     self.quitSearches(io);
+    self.cache.deinit(gpa);
     gpa.free(self.searches);
     gpa.destroy(self.channel);
 }
@@ -26,6 +29,7 @@ pub fn wait(self: *Engine, io: std.Io) void {
 pub fn newGame(self: *Engine, io: std.Io) void {
     const msg: Message = .new_game;
     self.channel.broadcast(io, &msg);
+    self.cache.clear();
 }
 
 pub fn go(self: *Engine, io: std.Io, out: *std.Io.Writer, game: *Game, search_start: std.Io.Timestamp, limits: SearchLimit) void {
@@ -53,6 +57,11 @@ pub fn setOutputMode(self: *Engine, io: std.Io, output_mode: OutputMode) void {
 pub fn setMoveFormat(self: *Engine, io: std.Io, move_format: MoveFormat) void {
     const msg: Message = .{ .move_format = move_format };
     self.channel.broadcast(io, &msg);
+}
+
+pub fn setCacheSize(self: *Engine, io: std.Io, gpa: std.mem.Allocator, mb: usize) !void {
+    self.wait(io);
+    return self.cache.resize(gpa, mb);
 }
 
 pub const SearchLimit = struct {
@@ -115,6 +124,7 @@ const Engine = @This();
 const std = @import("std");
 const thorn = @import("../thorn.zig");
 const Broadcast = thorn.util.Broadcast;
+const Cache = thorn.Cache;
 const Game = thorn.Game;
 const MoveFormat = thorn.MoveFormat;
 const Search = thorn.Search;

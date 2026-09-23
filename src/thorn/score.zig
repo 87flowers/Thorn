@@ -29,5 +29,15 @@ pub fn distanceToMate(s: Score) ?i32 {
     return if (s < 0) s - min_score else max_score - s;
 }
 
+pub fn adjustPlysToMate(s: Score, adjustment: i32) Score {
+    assert(s >= min_score and s <= max_score);
+    return if (s < min_normal_score)
+        matedIn(distanceToMate(s).? + adjustment)
+    else if (s > max_normal_score)
+        matingIn(distanceToMate(s).? + adjustment)
+    else
+        s;
+}
+
 const std = @import("std");
 const assert = std.debug.assert;

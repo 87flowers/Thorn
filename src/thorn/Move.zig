@@ -1,7 +1,7 @@
 pub const Move = packed struct {
     raw: u16,
 
-    pub const none = Square{ .raw = 0 };
+    pub const none: Move = .{ .raw = 0 };
 
     pub const Flags = enum(u16) {
         normal = 0x0000,

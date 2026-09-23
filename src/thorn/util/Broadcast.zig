@@ -58,7 +58,7 @@ pub fn Broadcast(comptime T: type) type {
 
                 self.generation = ~self.generation;
 
-                return self.sender.msg.load(.monotonic) orelse unreachable;
+                return self.sender.msg.load(.monotonic).?;
             }
 
             pub fn done(self: *Receiver, io: std.Io) void {

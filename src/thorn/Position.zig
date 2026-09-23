@@ -127,6 +127,7 @@ pub fn checkers(self: *const Position) PieceSet {
 }
 
 pub fn isCastleLegal(self: *const Position, comptime side: Castling.Side) bool {
+    assert(self.precalc);
     return self.checkers().isEmpty() and self.isCastleLegalAssumeNoCheck(side);
 }
 
@@ -154,6 +155,77 @@ fn isCastleLegalHelper(self: *const Position, rook: Square, rook_dst: File, king
     const clear = empty.bitOr(rook.toSet()).bitOr(king.toSet());
 
     return rook_ray.bitAndNot(clear).isEmpty() and king_ray.bitAndNot(clear).isEmpty() and king_ray.bitAnd(danger).isEmpty() and !self.pinned.read(rook);
+}
+
+pub fn isLegal(self: *const Position, m: Move) bool {
+    if (m.isNone()) return false;
+
+    @constCast(self).calculateDanger();
+
+    const stm = self.sideToMove();
+    const king_sq = self.kingSq(stm);
+
+    const src = self.whatAt(m.from());
+    const dst = self.whatAt(m.to());
+
+    if (src.isNone() or src.color() != stm) return false;
+
+    const src_id = self.whichAt(m.from());
+    const valid_attack = self.masked_attack_set[src_id.toIndex()].read(m.to());
+
+    if (src.ptype() == .k) {
+        if (m.flags() == .castle_aside) return self.castling.read(stm, .a) == m.to() and self.isCastleLegal(.a);
+        if (m.flags() == .castle_hside) return self.castling.read(stm, .h) == m.to() and self.isCastleLegal(.h);
+
+        if (self.danger.read(m.to())) return false;
+
+        if (m.flags() == .cap_normal) return valid_attack and dst.isSome() and dst.color() != stm;
+        if (m.flags() == .normal) return valid_attack and dst.isNone();
+        return false;
+    }
+
+    const checker_set = self.checkers();
+    if (!checker_set.isEmpty()) {
+        if (checker_set.popcount() > 1) return false;
+
+        const checker_id = checker_set.lsb();
+        const checker_sq = self.whereIs(stm.invert(), checker_id);
+        const checker_ptype = self.whatIs(stm.invert(), checker_id);
+        const valid_destinations: SquareSet = .rayExclusiveInclusive(king_sq, checker_sq);
+
+        if (m.flags() == .enpassant and checker_ptype != .p) return false;
+        if (m.flags() != .enpassant and !valid_destinations.read(m.to())) return false;
+    }
+
+    if (src.ptype() == .p) {
+        if (m.isCastle()) return false;
+        if (m.isPromo() != (m.to().relative(stm).rank() == .eighth)) return false;
+
+        if (m.isEnpassant()) {
+            if (m.from().rank() == king_sq.rank()) {
+                const victim = m.to().toggleRankLsb();
+                const occ = self.occupiedSet().bitAndNot(.set(.{ victim, m.from() }));
+                const enemy_rooks = self.coloredPtypeSet(stm.invert(), .r).bitOr(self.coloredPtypeSet(stm.invert(), .q));
+                if (!attacks.rook(occ, king_sq).bitAnd(enemy_rooks).isEmpty()) return false;
+            }
+            return m.to() == self.enpassant and valid_attack;
+        }
+
+        const pinned = self.pinned.bitAndNot(.fileMask(king_sq.file()));
+        const delta = Square.delta(m.from().relative(stm), m.to().relative(stm));
+
+        if (m.isDoublePush()) {
+            const between = m.to().toggleRankLsb();
+            return delta == -16 and dst.isNone() and self.whatAt(between).isNone() and m.from().relative(stm).rank() == .second and !pinned.read(m.from());
+        }
+
+        if (m.isCapture()) return valid_attack and dst.isSome() and dst.color() != stm;
+        return delta == -8 and dst.isNone() and !pinned.read(m.from());
+    }
+
+    if (m.flags() == .cap_normal) return valid_attack and dst.isSome() and dst.color() != stm;
+    if (m.flags() == .normal) return valid_attack and dst.isNone();
+    return false;
 }
 
 pub fn move(noalias self: *const Position, noalias new_pos: *Position, m: Move) void {
@@ -744,6 +816,41 @@ test "roundtrip fens" {
         var tmp: [128]u8 = undefined;
         const fen = try std.fmt.bufPrint(&tmp, "{f}", .{position});
         try std.testing.expectEqualStrings(case, fen);
+    }
+}
+
+test "isLegal perft" {
+    const perft = struct {
+        fn perft(position: *const Position, depth: usize) u64 {
+            if (depth == 0) return 1;
+            var result: u64 = 0;
+            for (0..0x10000) |i| {
+                const hi = i & 0xF000;
+                if (hi == 0xA000 or hi == 0xB000) continue;
+                const m: Move = .{ .raw = @intCast(i) };
+                if (!position.isLegal(m)) continue;
+                var child_position: Position = undefined;
+                position.move(&child_position, m);
+                const child_result = perft(&child_position, depth - 1);
+                result += child_result;
+            }
+            return result;
+        }
+    }.perft;
+    const cases = [_]struct { []const u8, [4]u64 }{
+        .{ "5rk1/1pQ3p1/3p3p/3q1P1K/6P1/3b4/P7/8 b - - 3 38", .{ 1, 39, 750, 25848 } },
+        .{ "4kb1r/pr3ppp/2pp4/q4b2/4nP2/2N1P3/PPP1N1PP/R1BQK2R w KQk - 4 12", .{ 1, 22, 1045, 27730 } },
+        .{ "rnbq1rk1/pp2bppp/2pp3B/7n/3PP3/2N2Q2/PPP2PPP/R3KBNR b KQ - 3 8", .{ 1, 31, 1450, 45297 } },
+        .{ "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", .{ 1, 20, 400, 8902 } },
+        .{ "r3k2r/p1ppqpb1/bn2pnp1/3PN3/1p2P3/2N2Q1p/PPPBBPPP/R3K2R w KQkq - 0 1", .{ 1, 48, 2039, 97862 } },
+        .{ "8/2p5/3p4/KP5r/1R3p1k/8/4P1P1/8 w - - 0 1", .{ 1, 14, 191, 2812 } },
+    };
+    for (cases) |case| {
+        const position = try Position.parse(case[0]);
+        for (case[1], 0..) |answer, depth| {
+            const result = perft(&position, depth);
+            try std.testing.expectEqual(answer, result);
+        }
     }
 }
 

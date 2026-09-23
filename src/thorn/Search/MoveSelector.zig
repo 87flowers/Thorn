@@ -1,25 +1,30 @@
 stage: enum {
+    hint_move,
     movegen_noisy,
     emit_noisy,
     movegen_quiet,
     emit_quiet,
     end,
-} = .movegen_noisy,
+} = .hint_move,
 
 moves: MoveList = .new(),
 position: *const Position,
 current: usize = 0,
 
+hint_move: Move,
+
 skip_quiet: bool = false,
 
-pub fn new(position: *const Position) MoveSelector {
+pub fn new(position: *const Position, hint_move: Move) MoveSelector {
     return .{
         .position = position,
+        .hint_move = hint_move,
     };
 }
 
 pub fn skipQuiet(self: *MoveSelector) void {
     self.stage = switch (self.stage) {
+        .hint_move => .hint_move,
         .movegen_noisy => .movegen_noisy,
         .emit_noisy => .emit_noisy,
         .movegen_quiet => .end,
@@ -31,6 +36,13 @@ pub fn skipQuiet(self: *MoveSelector) void {
 
 pub fn next(self: *MoveSelector) ?Move {
     sw: switch (self.stage) {
+        .hint_move => {
+            if (self.hint_move.isSome() and self.position.isLegal(self.hint_move)) {
+                self.stage = .movegen_noisy;
+                return self.hint_move;
+            }
+            continue :sw .movegen_noisy;
+        },
         .movegen_noisy => {
             self.moves.clear();
             movegen.noisy(&self.moves, self.position);

@@ -4,6 +4,7 @@ pub const Stack = @import("./Search/Stack.zig");
 
 io: std.Io,
 searches: []Search,
+cache: *Cache,
 channel: Broadcast(Engine.Message).Receiver,
 index: usize,
 thread: std.Thread,
@@ -31,10 +32,12 @@ pub fn launch(
     _: std.mem.Allocator,
     index: usize,
     searches: []Search,
+    cache: *Cache,
     channel: Broadcast(Engine.Message).Receiver,
 ) !void {
     self.io = io;
     self.searches = searches;
+    self.cache = cache;
     self.channel = channel;
     self.index = index;
     self.thread = try std.Thread.spawn(.{}, threadMain, .{self});
@@ -89,7 +92,7 @@ fn threadMain(self: *Search) !void {
                                 ctrl.time_limit.hard = time.hard;
                             }
                             if (has.depth) {
-                                ctrl.depth_limit.target_depth = m.limits.depth orelse unreachable;
+                                ctrl.depth_limit.target_depth = m.limits.depth.?;
                             }
                             if (has.nodes) {
                                 ctrl.nodes_limit.soft = m.limits.soft_nodes;
@@ -229,10 +232,15 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
 fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, initial_alpha: Score, beta: Score, ply: i32, depth: i32) Abort!Score {
     var alpha = initial_alpha;
 
-    var moves: MoveSelector = .new(&self.ss(ply).position);
+    const cache_entry = self.cache.lookup(self.hash_stack.back(), ply);
+    const hint_move: Move = if (cache_entry) |lr| lr.move else .none;
+
+    var moves: MoveSelector = .new(&self.ss(ply).position, hint_move);
 
     var searched_moves: usize = 0;
     var best_score: Score = score.none;
+    var best_move: Move = .none;
+    var actual_kind: NodeKind = .all;
     while (moves.next()) |m| {
         searched_moves += 1;
 
@@ -246,14 +254,30 @@ fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, initial
             best_score = s;
             self.ss(ply).pv.writeLine(m, &self.ss(ply + 1).pv);
 
-            if (s > alpha) alpha = s;
-            if (s >= beta) break;
+            if (s > alpha) {
+                alpha = s;
+                best_move = m;
+                actual_kind = .pv;
+            }
+
+            if (s >= beta) {
+                actual_kind = .cut;
+                break;
+            }
         }
     }
 
     if (best_score == score.none) {
         return if (self.ss(ply).position.checkers().isEmpty()) 0 else score.matedIn(ply);
     }
+
+    self.cache.update(self.hash_stack.back(), ply, .{
+        .depth = depth,
+        .kind = actual_kind,
+        .score = best_score,
+        .move = best_move,
+    });
+
     return best_score;
 }
 
@@ -286,7 +310,7 @@ fn qsearch(self: *Search, comptime leaf_expected: NodeKind, ctrl: anytype, paren
 fn qsearchBody(self: *Search, comptime leaf_expected: NodeKind, ctrl: anytype, initial_alpha: Score, beta: Score, ply: i32) Abort!Score {
     var alpha = initial_alpha;
 
-    var moves: MoveSelector = .new(&self.ss(ply).position);
+    var moves: MoveSelector = .new(&self.ss(ply).position, .none);
     moves.skipQuiet();
 
     var searched_moves: usize = 0;
@@ -342,6 +366,7 @@ const std = @import("std");
 const thorn = @import("../thorn.zig");
 const score = thorn.score;
 const Broadcast = thorn.util.Broadcast;
+const Cache = thorn.Cache;
 const Color = thorn.Color;
 const Engine = thorn.Engine;
 const Eval = thorn.Eval;
