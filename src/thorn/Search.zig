@@ -265,9 +265,9 @@ fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, cache_e
 
         if (s > best_score) {
             best_score = s;
-            self.ss(ply).pv.writeLine(m, &self.ss(ply + 1).pv);
 
             if (s > alpha) {
+                if (expected == .pv) self.ss(ply).pv.writeLine(m, &self.ss(ply + 1).pv);
                 alpha = s;
                 best_move = m;
                 actual_kind = .pv;
@@ -339,9 +339,12 @@ fn qsearchBody(self: *Search, comptime leaf_expected: NodeKind, ctrl: anytype, i
 
         if (s > best_score) {
             best_score = s;
-            self.ss(ply).pv.writeLine(m, &self.ss(ply + 1).pv);
 
-            if (s > alpha) alpha = s;
+            if (s > alpha) {
+                if (leaf_expected == .pv) self.ss(ply).pv.writeLine(m, &self.ss(ply + 1).pv);
+                alpha = s;
+            }
+
             if (s >= beta) break;
         }
     }
