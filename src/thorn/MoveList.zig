@@ -18,8 +18,8 @@ pub fn constSlice(self: *const MoveList) []const Move {
     return self.storage[0..self.len];
 }
 
-pub fn push(self: *MoveList, from: Square, to: Square, flags: Move.Flags) void {
-    self.storage[self.len] = Move.make(from, to, flags);
+pub fn push(self: *MoveList, m: Move) void {
+    self.storage[self.len] = m;
     self.len += 1;
 }
 

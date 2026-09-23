@@ -49,7 +49,7 @@ pub const Move = packed struct {
     }
 
     pub fn isQuiet(self: Move) bool {
-        return self.raw > 0 and self.raw < 0x7000;
+        return self.raw > 0 and self.raw < 0x8000;
     }
 
     pub fn isCapture(self: Move) bool {

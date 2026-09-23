@@ -1,4 +1,5 @@
 pub const control = @import("./Search/control.zig");
+pub const history = @import("./Search/history.zig");
 pub const MoveSelector = @import("./Search/MoveSelector.zig");
 pub const Stack = @import("./Search/Stack.zig");
 
@@ -23,6 +24,8 @@ hash_waterline: usize,
 stack: [max_depth + stack_offset + 3]Stack,
 
 eval: Eval,
+
+quiet_history: history.Quiet,
 
 pub const max_depth = 240;
 
@@ -248,7 +251,9 @@ fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, cache_e
 
     const hint_move: Move = if (cache_entry) |lr| lr.move else .none;
 
-    var moves: MoveSelector = .new(&self.ss(ply).position, hint_move);
+    var moves: MoveSelector = .new(self, &self.ss(ply).position, hint_move);
+
+    var fail_low_quiets: MoveList = .new();
 
     var searched_moves: usize = 0;
     var best_score: Score = score.none;
@@ -278,10 +283,24 @@ fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, cache_e
                 break;
             }
         }
+
+        if (m != best_move and m.isQuiet()) fail_low_quiets.push(m);
     }
 
     if (best_score == score.none) {
         return if (self.ss(ply).position.checkers().isEmpty()) 0 else score.matedIn(ply);
+    }
+
+    if (best_move.isSome()) {
+        const stm = self.ss(ply).position.sideToMove();
+
+        const quiet_bonus = 150 * depth - 75;
+        const quiet_malus = 75 * depth - 30;
+
+        if (best_move.isQuiet()) {
+            self.quiet_history.update(stm, best_move, quiet_bonus);
+            for (fail_low_quiets.constSlice()) |m| self.quiet_history.update(stm, m, -quiet_malus);
+        }
     }
 
     self.cache.update(self.hash_stack.back(), ply, .{
@@ -323,7 +342,7 @@ fn qsearch(self: *Search, comptime leaf_expected: NodeKind, ctrl: anytype, paren
 fn qsearchBody(self: *Search, comptime leaf_expected: NodeKind, ctrl: anytype, initial_alpha: Score, beta: Score, ply: i32) Abort!Score {
     var alpha = initial_alpha;
 
-    var moves: MoveSelector = .new(&self.ss(ply).position, .none);
+    var moves: MoveSelector = .new(self, &self.ss(ply).position, .none);
     moves.skipQuiet();
 
     var searched_moves: usize = 0;
@@ -387,6 +406,7 @@ const Hash = thorn.Hash;
 const Line = thorn.Line;
 const Move = thorn.Move;
 const MoveFormat = thorn.MoveFormat;
+const MoveList = thorn.MoveList;
 const NodeKind = thorn.NodeKind;
 const Position = thorn.Position;
 const Score = thorn.score.Score;

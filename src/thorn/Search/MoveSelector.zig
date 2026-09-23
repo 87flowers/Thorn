@@ -8,15 +8,17 @@ stage: enum {
 } = .hint_move,
 
 moves: MoveList = .new(),
-position: *const Position,
 current: usize = 0,
 
+search: *const Search,
+position: *const Position,
 hint_move: Move,
 
 skip_quiet: bool = false,
 
-pub fn new(position: *const Position, hint_move: Move) MoveSelector {
+pub fn new(search: *const Search, position: *const Position, hint_move: Move) MoveSelector {
     return .{
+        .search = search,
         .position = position,
         .hint_move = hint_move,
     };
@@ -63,6 +65,7 @@ pub fn next(self: *MoveSelector) ?Move {
 
             self.moves.clear();
             movegen.quiet(&self.moves, self.position);
+            self.orderQuietMoves();
 
             self.current = 0;
             continue :sw .emit_quiet;
@@ -89,6 +92,19 @@ fn orderNoisyMoves(self: *MoveSelector) void {
         const src_ptype = self.position.whatAt(m.from()).ptype();
         const dst_ptype = self.position.whatAt(m.to()).ptype();
         scores[i] = mvv_table[dst_ptype.toIndex()] - lva_table[src_ptype.toIndex()];
+    }
+
+    self.sort(&scores);
+}
+
+fn orderQuietMoves(self: *MoveSelector) void {
+    var scores: [MoveList.capacity]i32 = undefined;
+
+    const stm = self.position.sideToMove();
+
+    for (0..self.moves.len) |i| {
+        const m = self.moves.storage[i];
+        scores[i] = self.search.quiet_history.get(stm, m);
     }
 
     self.sort(&scores);
@@ -121,3 +137,4 @@ const movegen = thorn.movegen;
 const Move = thorn.Move;
 const MoveList = thorn.MoveList;
 const Position = thorn.Position;
+const Search = thorn.Search;

@@ -53,14 +53,14 @@ fn generateEnpassant(comptime subset: Subset, moves: *MoveList, position: *const
             // Detect if en passant attacker is clearance pinned
             if (!attacks.rook(occ, king).bitAnd(enemy_rooks).isEmpty()) return;
         }
-        moves.push(attacker, ep, .enpassant);
+        moves.push(.make(attacker, ep, .enpassant));
         return;
     }
 
     var iter = attacker_set.iter();
     while (iter.next()) |id| {
         const attacker = position.whereIs(position.sideToMove(), id);
-        moves.push(attacker, ep, .enpassant);
+        moves.push(.make(attacker, ep, .enpassant));
     }
 }
 
@@ -169,8 +169,8 @@ fn generateCastling(comptime subset: Subset, moves: *MoveList, position: *const 
 
     const stm = position.sideToMove();
     if (!position.castling.hasColor(stm)) return;
-    if (position.isCastleLegalAssumeNoCheck(.a)) moves.push(position.kingSq(stm), position.castling.read(stm, .a), .castle_aside);
-    if (position.isCastleLegalAssumeNoCheck(.h)) moves.push(position.kingSq(stm), position.castling.read(stm, .h), .castle_hside);
+    if (position.isCastleLegalAssumeNoCheck(.a)) moves.push(.make(position.kingSq(stm), position.castling.read(stm, .a), .castle_aside));
+    if (position.isCastleLegalAssumeNoCheck(.h)) moves.push(.make(position.kingSq(stm), position.castling.read(stm, .h), .castle_hside));
 }
 
 fn generateKingMoves(comptime subset: Subset, moves: *MoveList, position: *const Position) void {
