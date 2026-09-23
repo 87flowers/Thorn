@@ -190,10 +190,14 @@ fn printInfoLine(self: *Search, out: *std.Io.Writer, depth: i32, s: Score, pv: *
 }
 
 fn searchRoot(self: *Search, ctrl: anytype, alpha: Score, beta: Score, depth: i32) Abort!Score {
-    _ = self.nodes.rmw(.Add, 1, .monotonic);
-    self.ss(0).pv.clear();
+    const ply = 0;
 
-    return self.searchBody(.pv, ctrl, alpha, beta, 0, depth);
+    _ = self.nodes.rmw(.Add, 1, .monotonic);
+    self.ss(ply).pv.clear();
+
+    const cache_entry = self.cache.lookup(self.hash_stack.back(), ply);
+
+    return self.searchBody(.pv, ctrl, cache_entry, alpha, beta, ply, depth);
 }
 
 fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move: Move, alpha: Score, beta: Score, ply: i32, depth: i32) Abort!Score {
@@ -212,6 +216,16 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
         return Abort.Abort;
     }
 
+    const cache_entry = self.cache.lookup(self.hash_stack.back(), ply);
+    if (cache_entry) |lr| if (expected != .pv and lr.depth >= depth and switch (lr.kind) {
+        .none => false,
+        .cut => lr.score >= beta,
+        .pv => true,
+        .all => lr.score <= alpha,
+    }) {
+        return lr.score;
+    };
+
     self.eval.push(parent_position, parent_move);
     defer self.eval.pop();
 
@@ -226,13 +240,12 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
 
     self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
 
-    return self.searchBody(expected, ctrl, alpha, beta, ply, depth);
+    return self.searchBody(expected, ctrl, cache_entry, alpha, beta, ply, depth);
 }
 
-fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, initial_alpha: Score, beta: Score, ply: i32, depth: i32) Abort!Score {
+fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, cache_entry: ?Cache.Result, initial_alpha: Score, beta: Score, ply: i32, depth: i32) Abort!Score {
     var alpha = initial_alpha;
 
-    const cache_entry = self.cache.lookup(self.hash_stack.back(), ply);
     const hint_move: Move = if (cache_entry) |lr| lr.move else .none;
 
     var moves: MoveSelector = .new(&self.ss(ply).position, hint_move);
