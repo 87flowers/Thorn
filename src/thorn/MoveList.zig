@@ -18,8 +18,8 @@ pub fn constSlice(self: *const MoveList) []const Move {
     return self.storage[0..self.len];
 }
 
-pub fn push(self: *MoveList, from: Square, to: Square, flags: Move.Flags) void {
-    self.storage[self.len] = Move.make(from, to, flags);
+pub fn push(self: *MoveList, m: Move) void {
+    self.storage[self.len] = m;
     self.len += 1;
 }
 
@@ -63,7 +63,7 @@ pub fn pushSets(self: *MoveList, from: Square, normal_to: SquareSet, cap_to: Squ
         }
     } else {
         var iter = to.iter();
-        while (iter.next()) |sq| self.push(from, sq, if (cap_to.read(sq)) .cap_normal else .normal);
+        while (iter.next()) |sq| self.push(.make(from, sq, if (cap_to.read(sq)) .cap_normal else .normal));
     }
 }
 
@@ -98,7 +98,7 @@ pub fn pushSet(self: *MoveList, from: Square, to: SquareSet, comptime flag: Move
         }
     } else {
         var iter = to.iter();
-        while (iter.next()) |sq| self.push(from, sq, flag);
+        while (iter.next()) |sq| self.push(.make(from, sq, flag));
     }
 }
 
@@ -152,7 +152,7 @@ pub fn pushPawnRank(self: *MoveList, base: Square, from: u8, comptime offset: i8
         while (set != 0) : (set &= set - 1) {
             const f: i32 = @intFromEnum(base) + @as(i32, @ctz(set));
             const t: i32 = f + offset;
-            self.push(Square.fromIndex(@intCast(f)), Square.fromIndex(@intCast(t)), flags);
+            self.push(.make(.fromIndex(@intCast(f)), .fromIndex(@intCast(t)), flags));
         }
     }
 }
@@ -183,7 +183,7 @@ pub fn pushPawnBody(self: *MoveList, from: u32, color: Color) void {
         while (set != 0) : (set &= set - 1) {
             const f: i32 = 16 + @as(i32, @ctz(set));
             const t: i32 = f + offset;
-            self.push(Square.fromIndex(@intCast(f)), Square.fromIndex(@intCast(t)), .normal);
+            self.push(.make(.fromIndex(@intCast(f)), .fromIndex(@intCast(t)), .normal));
         }
     }
 }
@@ -229,7 +229,7 @@ pub fn pushPawnCapture(self: *MoveList, from: SquareSet, comptime dir: Dir) void
         while (set != 0) : (set &= set - 1) {
             const f: i32 = @as(i32, @ctz(set));
             const t: i32 = f + offset;
-            self.push(Square.fromIndex(@intCast(f)), Square.fromIndex(@intCast(t)), .cap_normal);
+            self.push(.make(.fromIndex(@intCast(f)), .fromIndex(@intCast(t)), .cap_normal));
         }
     }
 }
@@ -269,7 +269,7 @@ pub fn pushPawnPromoCapture(self: *MoveList, base: Square, from: u8, comptime di
         while (set != 0) : (set &= set - 1) {
             const f: i32 = @intFromEnum(base) + @as(i32, @ctz(set));
             const t: i32 = f + offset;
-            self.push(Square.fromIndex(@intCast(f)), Square.fromIndex(@intCast(t)), flags);
+            self.push(.make(.fromIndex(@intCast(f)), .fromIndex(@intCast(t)), flags));
         }
     }
 }
