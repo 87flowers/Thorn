@@ -3,6 +3,7 @@ pub const cmd = @import("thorn/cmd.zig");
 pub const movegen = @import("thorn/movegen.zig");
 pub const score = @import("thorn/score.zig");
 pub const util = @import("thorn/util.zig");
+pub const Cache = @import("thorn/Cache.zig");
 pub const Engine = @import("thorn/Engine.zig");
 pub const Eval = @import("thorn/Eval.zig");
 pub const Game = @import("thorn/Game.zig");
@@ -349,6 +350,17 @@ pub const Square = enum(u8) {
 
     pub fn flipColor(self: Square) Square {
         return @enumFromInt(@intFromEnum(self) ^ 0x38);
+    }
+
+    pub fn relative(self: Square, color: Color) Square {
+        return switch (color) {
+            .white => self,
+            .black => self.flipColor(),
+        };
+    }
+
+    pub fn delta(self: Square, other: Square) i32 {
+        return @as(i32, @intFromEnum(self)) - @as(i32, @intFromEnum(other));
     }
 
     // Caller has ownership of string

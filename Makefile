@@ -5,7 +5,7 @@ ZIG_PATH := $(shell /usr/bin/env bash ./scripts/download_zig.sh "zig-x86_64-linu
 
 EXE ?= thorn
 
-all: test
+all:
 > $(ZIG_PATH)/zig build --release=fast
 > mv ./zig-out/bin/thorn $(EXE)
 
@@ -13,9 +13,9 @@ clean:
 > rm -r ./.zig-cache ./zig-out
 
 test:
-> $(ZIG_PATH)/zig build test
+> $(ZIG_PATH)/zig build --release=safe test
 
-bench: test
+bench:
 > $(ZIG_PATH)/zig build run --release=safe -- bench
 
 .PHONY: all clean test bench

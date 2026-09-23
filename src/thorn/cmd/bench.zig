@@ -1,5 +1,6 @@
-pub fn run(io: std.Io, out: *std.Io.Writer, engine: *Engine) !void {
-    engine.wait(io);
+pub fn run(io: std.Io, gpa: std.mem.Allocator, out: *std.Io.Writer, engine: *Engine) !void {
+    try engine.setCacheSize(io, gpa, 16);
+    engine.newGame(io);
 
     var timer = std.Io.Timestamp.now(io, .awake);
     var total_nodes: u64 = 0;

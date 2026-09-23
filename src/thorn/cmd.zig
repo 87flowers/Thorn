@@ -9,7 +9,7 @@ pub const ShouldQuit = enum {
 
 pub fn processLine(
     io: std.Io,
-    _: std.mem.Allocator,
+    gpa: std.mem.Allocator,
     out: *std.Io.Writer,
     engine: *Engine,
     game: *Game,
@@ -80,6 +80,15 @@ pub fn processLine(
     } else if (std.ascii.eqlIgnoreCase(cmd, "ucinewgame")) {
         engine.newGame(io);
         game.* = .startpos;
+    } else if (std.ascii.eqlIgnoreCase(cmd, "setoption")) {
+        while (!std.ascii.eqlIgnoreCase(it.next() orelse return .next, "name")) {}
+        const name = it.next() orelse return .next;
+        while (!std.ascii.eqlIgnoreCase(it.next() orelse return .next, "value")) {}
+        const value_str = it.next() orelse return .next;
+        if (std.ascii.eqlIgnoreCase(name, "Hash")) {
+            const mb = std.fmt.parseUnsigned(usize, value_str, 10) catch return .next;
+            try engine.setCacheSize(io, gpa, mb);
+        }
     } else if (std.ascii.eqlIgnoreCase(cmd, "isready")) {
         try out.print("readyok\n", .{});
         try out.flush();
@@ -102,7 +111,7 @@ pub fn processLine(
         }
     } else if (std.ascii.eqlIgnoreCase(cmd, "bench")) {
         engine.setOutputMode(io, .none);
-        try bench.run(io, out, engine);
+        try bench.run(io, gpa, out, engine);
         return .quit;
     } else if (std.ascii.eqlIgnoreCase(cmd, "quit")) {
         return .quit;
