@@ -43,9 +43,10 @@ pub fn launch(
     self.cache = cache;
     self.channel = channel;
     self.index = index;
-    self.thread = try std.Thread.spawn(.{}, threadMain, .{self});
     self.output_mode = .none;
     self.move_format = .frc;
+    self.newGame();
+    self.thread = try std.Thread.spawn(.{}, threadMain, .{self});
 }
 
 fn threadMain(self: *Search) !void {
@@ -133,7 +134,9 @@ fn calcTimeLimit(limits: *const Engine.SearchLimit) struct { soft: i64, hard: i6
     return .{ .soft = soft_limit, .hard = hard_limit };
 }
 
-fn newGame(_: *Search) void {}
+fn newGame(self: *Search) void {
+    self.quiet_history.reset();
+}
 
 fn go(self: *Search, out: *std.Io.Writer, ctrl: anytype) !void {
     self.stack = @splat(.{});
