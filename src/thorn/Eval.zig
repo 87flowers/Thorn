@@ -132,7 +132,8 @@ pub fn pop(self: *Eval) void {
 }
 
 pub fn evaluation(self: *Eval) Score {
-    return self.stack.back().value;
+    const current = &self.stack.back();
+    return current.value + current.phase * tempo;
 }
 
 pub fn assertMatchesRebuild(self: *Eval, position: *const Position) void {
@@ -161,6 +162,8 @@ fn rebuild(position: *const Position) Stack {
         .value = value,
     };
 }
+
+const tempo: Score = 8;
 
 const phase_table: [6]i32 = .{ 0, 1, 1, 2, 4, 0 };
 
