@@ -317,7 +317,7 @@ fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, cache_e
             if (conthist1) |h| h.update(position, best_move, cont_bonus);
             for (fail_low_quiets.constSlice()) |m| {
                 self.quiet_history.update(stm, m, -quiet_malus);
-                if (conthist1) |h| h.update(position, best_move, -cont_malus);
+                if (conthist1) |h| h.update(position, m, -cont_malus);
             }
         }
     }
