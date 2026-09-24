@@ -149,8 +149,30 @@ fn go(self: *Search, out: *std.Io.Writer, ctrl: anytype) !void {
     self.eval.reset(&self.root_position);
 
     var depth: i32 = 1;
-    while (depth < max_depth) : (depth += 1) {
-        const s = self.searchRoot(ctrl, -score.infinity, score.infinity, @intCast(depth)) catch break;
+    iterative_deepening: while (depth < max_depth) : (depth += 1) {
+        var alpha = -score.infinity;
+        var beta = score.infinity;
+        var delta: Score = 25;
+        var s = score.none;
+
+        if (depth >= 4) {
+            alpha = last_score - delta;
+            beta = last_score + delta;
+        }
+
+        while (true) {
+            s = self.searchRoot(ctrl, alpha, beta, @intCast(depth)) catch break :iterative_deepening;
+
+            if (s <= alpha) {
+                alpha = @max(s - delta, -score.infinity);
+            } else if (s >= beta) {
+                beta = @min(s + delta, score.infinity);
+            } else {
+                break;
+            }
+
+            delta += delta;
+        }
 
         if (self.stopping.load(.monotonic)) break;
 
