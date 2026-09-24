@@ -26,6 +26,7 @@ stack: [max_depth + stack_offset + 3]Stack,
 eval: Eval,
 
 quiet_history: history.Quiet,
+continuation_history: history.Continuation,
 
 pub const max_depth = 240;
 
@@ -47,6 +48,10 @@ pub fn launch(
     self.move_format = .frc;
     self.newGame();
     self.thread = try std.Thread.spawn(.{}, threadMain, .{self});
+}
+
+pub fn ss(self: *Search, ply: i32) *Stack {
+    return &self.stack[@intCast(ply + stack_offset)];
 }
 
 fn threadMain(self: *Search) !void {
@@ -244,6 +249,7 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
     const new_ply_since_null = if (parent_move.isSome()) parent_position.ply_since_null + 1 else 0;
     if (new_fifty_move_clock >= 100 or self.isThreeFoldDraw(@min(new_ply_since_null, new_fifty_move_clock))) return score.draw;
 
+    self.ss(ply - 1).conthist = self.continuation_history.getSubtable(&self.ss(ply - 1).position, parent_move);
     self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
 
     return self.searchBody(expected, ctrl, cache_entry, alpha, beta, ply, depth);
@@ -254,7 +260,7 @@ fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, cache_e
 
     const hint_move: Move = if (cache_entry) |lr| lr.move else .none;
 
-    var moves: MoveSelector = .new(self, &self.ss(ply).position, hint_move);
+    var moves: MoveSelector = .new(self, ply, hint_move);
 
     var fail_low_quiets: MoveList = .new();
 
@@ -295,14 +301,23 @@ fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, cache_e
     }
 
     if (best_move.isSome()) {
-        const stm = self.ss(ply).position.sideToMove();
+        const position: *const Position = &self.ss(ply).position;
+        const stm = position.sideToMove();
 
         const quiet_bonus = 150 * depth - 75;
         const quiet_malus = 75 * depth - 30;
+        const cont_bonus = 150 * depth - 75;
+        const cont_malus = 75 * depth - 30;
+
+        const conthist1 = self.ss(ply - 1).conthist;
 
         if (best_move.isQuiet()) {
             self.quiet_history.update(stm, best_move, quiet_bonus);
-            for (fail_low_quiets.constSlice()) |m| self.quiet_history.update(stm, m, -quiet_malus);
+            if (conthist1) |h| h.update(position, best_move, cont_bonus);
+            for (fail_low_quiets.constSlice()) |m| {
+                self.quiet_history.update(stm, m, -quiet_malus);
+                if (conthist1) |h| h.update(position, best_move, -cont_malus);
+            }
         }
     }
 
@@ -345,7 +360,7 @@ fn qsearch(self: *Search, comptime leaf_expected: NodeKind, ctrl: anytype, paren
 fn qsearchBody(self: *Search, comptime leaf_expected: NodeKind, ctrl: anytype, initial_alpha: Score, beta: Score, ply: i32) Abort!Score {
     var alpha = initial_alpha;
 
-    var moves: MoveSelector = .new(self, &self.ss(ply).position, .none);
+    var moves: MoveSelector = .new(self, ply, .none);
     moves.skipQuiet();
 
     var searched_moves: usize = 0;
@@ -389,10 +404,6 @@ fn isThreeFoldDraw(self: *Search, end: usize) bool {
         }
     }
     return false;
-}
-
-fn ss(self: *Search, ply: i32) *Stack {
-    return &self.stack[@intCast(ply + stack_offset)];
 }
 
 const stack_offset = 7;

@@ -10,16 +10,16 @@ stage: enum {
 moves: MoveList = .new(),
 current: usize = 0,
 
-search: *const Search,
-position: *const Position,
+search: *Search,
+ply: i32,
 hint_move: Move,
 
 skip_quiet: bool = false,
 
-pub fn new(search: *const Search, position: *const Position, hint_move: Move) MoveSelector {
+pub fn new(search: *Search, ply: i32, hint_move: Move) MoveSelector {
     return .{
         .search = search,
-        .position = position,
+        .ply = ply,
         .hint_move = hint_move,
     };
 }
@@ -39,7 +39,7 @@ pub fn skipQuiet(self: *MoveSelector) void {
 pub fn next(self: *MoveSelector) ?Move {
     sw: switch (self.stage) {
         .hint_move => {
-            if (self.hint_move.isSome() and self.position.isLegal(self.hint_move)) {
+            if (self.hint_move.isSome() and self.currentPosition().isLegal(self.hint_move)) {
                 self.stage = .movegen_noisy;
                 return self.hint_move;
             }
@@ -47,7 +47,7 @@ pub fn next(self: *MoveSelector) ?Move {
         },
         .movegen_noisy => {
             self.moves.clear();
-            movegen.noisy(&self.moves, self.position);
+            movegen.noisy(&self.moves, self.currentPosition());
             self.orderNoisyMoves();
 
             self.current = 0;
@@ -67,7 +67,7 @@ pub fn next(self: *MoveSelector) ?Move {
             if (self.skip_quiet) continue :sw .end;
 
             self.moves.clear();
-            movegen.quiet(&self.moves, self.position);
+            movegen.quiet(&self.moves, self.currentPosition());
             self.orderQuietMoves();
 
             self.current = 0;
@@ -91,12 +91,14 @@ pub fn next(self: *MoveSelector) ?Move {
 }
 
 fn orderNoisyMoves(self: *MoveSelector) void {
+    const position: *const Position = self.currentPosition();
+
     var scores: [MoveList.capacity]i32 = undefined;
 
     for (0..self.moves.len) |i| {
         const m = self.moves.storage[i];
-        const src_ptype = self.position.whatAt(m.from()).ptype();
-        const dst_ptype = self.position.whatAt(m.to()).ptype();
+        const src_ptype = position.whatAt(m.from()).ptype();
+        const dst_ptype = position.whatAt(m.to()).ptype();
         scores[i] = mvv_table[dst_ptype.toIndex()] - lva_table[src_ptype.toIndex()];
     }
 
@@ -104,13 +106,20 @@ fn orderNoisyMoves(self: *MoveSelector) void {
 }
 
 fn orderQuietMoves(self: *MoveSelector) void {
+    const position: *const Position = self.currentPosition();
+
     var scores: [MoveList.capacity]i32 = undefined;
 
-    const stm = self.position.sideToMove();
+    const stm = position.sideToMove();
+
+    const conthist1 = self.search.ss(self.ply - 1).conthist;
 
     for (0..self.moves.len) |i| {
         const m = self.moves.storage[i];
-        scores[i] = self.search.quiet_history.get(stm, m);
+        var score: i32 = 0;
+        score += self.search.quiet_history.get(stm, m);
+        if (conthist1) |h| score += h.get(position, m);
+        scores[i] = score;
     }
 
     self.sort(&scores);
@@ -131,6 +140,10 @@ fn sort(self: *MoveSelector, scores: []i32) void {
         }
     };
     std.sort.heapContext(0, self.moves.len, Context{ .ml = &self.moves, .scores = scores });
+}
+
+fn currentPosition(self: *MoveSelector) *const Position {
+    return &self.search.ss(self.ply).position;
 }
 
 const mvv_table: [7]i32 = .{ 800, 2400, 2400, 4000, 7200, 100000, 100 };
