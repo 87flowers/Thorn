@@ -118,7 +118,7 @@ pub fn push(self: *Eval, parent_position: *const Position, m: Move) void {
 
     const psqt = self.stack.back().psqt + if (stm == .white) psqt_delta else -psqt_delta;
     const phase = self.stack.back().phase + phase_delta;
-    var value = @divFloor(psqt[0] * phase + psqt[1] * (max_phase - phase), max_phase);
+    var value = lerp(psqt, phase);
     if (parent_position.sideToMove() == .white) value = -value;
     self.stack.push(.{
         .psqt = psqt,
@@ -133,7 +133,7 @@ pub fn pop(self: *Eval) void {
 
 pub fn evaluation(self: *Eval) Score {
     const current = &self.stack.back();
-    return current.value + @divTrunc(current.phase * tempo, max_phase);
+    return current.value + lerp(tempo, current.phase);
 }
 
 pub fn assertMatchesRebuild(self: *Eval, position: *const Position) void {
@@ -163,9 +163,13 @@ fn rebuild(position: *const Position) Stack {
     };
 }
 
+fn lerp(x: Pair, phase: i32) i32 {
+    return @divFloor(x[0] * phase + x[1] * (max_phase - phase), max_phase);
+}
+
 const max_phase = 24;
 
-const tempo: Score = 8;
+const tempo: Pair = .{ 20, 8 };
 
 const phase_table: [6]i32 = .{ 0, 1, 1, 2, 4, 0 };
 
