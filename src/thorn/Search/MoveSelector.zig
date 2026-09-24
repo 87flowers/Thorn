@@ -55,10 +55,13 @@ pub fn next(self: *MoveSelector) ?Move {
         },
         .emit_noisy => {
             self.stage = .emit_noisy;
-            if (self.current >= self.moves.len) continue :sw .movegen_quiet;
-            const m = self.moves.storage[self.current];
-            self.current += 1;
-            return m;
+            while (self.current < self.moves.len) {
+                const m = self.moves.storage[self.current];
+                self.current += 1;
+                if (m == self.hint_move) continue;
+                return m;
+            }
+            continue :sw .movegen_quiet;
         },
         .movegen_quiet => {
             if (self.skip_quiet) continue :sw .end;
@@ -72,10 +75,13 @@ pub fn next(self: *MoveSelector) ?Move {
         },
         .emit_quiet => {
             self.stage = .emit_quiet;
-            if (self.current >= self.moves.len) continue :sw .end;
-            const m = self.moves.storage[self.current];
-            self.current += 1;
-            return m;
+            while (self.current < self.moves.len) {
+                const m = self.moves.storage[self.current];
+                self.current += 1;
+                if (m == self.hint_move) continue;
+                return m;
+            }
+            continue :sw .end;
         },
         .end => {
             self.stage = .end;
