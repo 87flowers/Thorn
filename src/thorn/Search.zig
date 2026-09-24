@@ -155,12 +155,12 @@ fn go(self: *Search, out: *std.Io.Writer, ctrl: anytype) !void {
         var s = score.none;
 
         if (depth >= 4) {
-            alpha = last_score - 50;
-            beta = last_score + 50;
+            alpha = last_score - 25;
+            beta = last_score + 25;
         }
 
         while (true) {
-            s = self.searchRoot(ctrl, -score.infinity, score.infinity, @intCast(depth)) catch break :iterative_deepening;
+            s = self.searchRoot(ctrl, alpha, beta, @intCast(depth)) catch break :iterative_deepening;
 
             if (s <= alpha or s >= beta) {
                 alpha = -score.infinity;
