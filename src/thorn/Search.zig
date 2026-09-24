@@ -141,6 +141,7 @@ fn calcTimeLimit(limits: *const Engine.SearchLimit) struct { soft: i64, hard: i6
 
 fn newGame(self: *Search) void {
     self.quiet_history.reset();
+    self.continuation_history.reset();
 }
 
 fn go(self: *Search, out: *std.Io.Writer, ctrl: anytype) !void {
