@@ -1,16 +1,23 @@
 pub const Quiet = struct {
-    table: [2][64][64]i16 = @splat(@splat(@splat(0))),
+    ft_table: [2][64][64]i16 = @splat(@splat(@splat(0))),
+    pt_table: [2][6][64]i16 = @splat(@splat(@splat(0))),
 
     pub fn reset(self: *Quiet) void {
-        self.table = @splat(@splat(@splat(0)));
+        self.ft_table = @splat(@splat(@splat(0)));
+        self.pt_table = @splat(@splat(@splat(0)));
     }
 
-    pub fn get(self: *const Quiet, stm: Color, mv: Move) i32 {
-        return self.table[stm.toIndex()][mv.from().toIndex()][mv.to().toIndex()];
+    pub fn get(self: *const Quiet, position: *const Position, stm: Color, mv: Move) i32 {
+        const ptype = position.whatAt(mv.from()).ptype();
+        const ft = self.ft_table[stm.toIndex()][mv.from().toIndex()][mv.to().toIndex()];
+        const pt = self.pt_table[stm.toIndex()][ptype.toIndex()][mv.to().toIndex()];
+        return ft + pt;
     }
 
-    pub fn update(self: *Quiet, stm: Color, mv: Move, bonus: i32) void {
-        gravity(&self.table[stm.toIndex()][mv.from().toIndex()][mv.to().toIndex()], bonus, 8192);
+    pub fn update(self: *Quiet, position: *const Position, stm: Color, mv: Move, bonus: i32) void {
+        const ptype = position.whatAt(mv.from()).ptype();
+        gravity(&self.ft_table[stm.toIndex()][mv.from().toIndex()][mv.to().toIndex()], bonus, 8192);
+        gravity(&self.pt_table[stm.toIndex()][ptype.toIndex()][mv.to().toIndex()], bonus, 8192);
     }
 };
 
@@ -24,3 +31,4 @@ const std = @import("std");
 const thorn = @import("../../thorn.zig");
 const Color = thorn.Color;
 const Move = thorn.Move;
+const Position = thorn.Position;

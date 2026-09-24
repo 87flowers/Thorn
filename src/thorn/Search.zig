@@ -250,6 +250,7 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
 }
 
 fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, cache_entry: ?Cache.Result, initial_alpha: Score, beta: Score, ply: i32, depth: i32) Abort!Score {
+    const position: *const Position = &self.ss(ply).position;
     var alpha = initial_alpha;
 
     const hint_move: Move = if (cache_entry) |lr| lr.move else .none;
@@ -291,18 +292,18 @@ fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, cache_e
     }
 
     if (best_score == score.none) {
-        return if (self.ss(ply).position.checkers().isEmpty()) 0 else score.matedIn(ply);
+        return if (position.checkers().isEmpty()) 0 else score.matedIn(ply);
     }
 
     if (best_move.isSome()) {
-        const stm = self.ss(ply).position.sideToMove();
+        const stm = position.sideToMove();
 
         const quiet_bonus = 150 * depth - 75;
         const quiet_malus = 75 * depth - 30;
 
         if (best_move.isQuiet()) {
-            self.quiet_history.update(stm, best_move, quiet_bonus);
-            for (fail_low_quiets.constSlice()) |m| self.quiet_history.update(stm, m, -quiet_malus);
+            self.quiet_history.update(position, stm, best_move, quiet_bonus);
+            for (fail_low_quiets.constSlice()) |m| self.quiet_history.update(position, stm, m, -quiet_malus);
         }
     }
 

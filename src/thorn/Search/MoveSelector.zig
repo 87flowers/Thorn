@@ -104,13 +104,15 @@ fn orderNoisyMoves(self: *MoveSelector) void {
 }
 
 fn orderQuietMoves(self: *MoveSelector) void {
+    const position = self.position;
+
     var scores: [MoveList.capacity]i32 = undefined;
 
-    const stm = self.position.sideToMove();
+    const stm = position.sideToMove();
 
     for (0..self.moves.len) |i| {
         const m = self.moves.storage[i];
-        scores[i] = self.search.quiet_history.get(stm, m);
+        scores[i] = self.search.quiet_history.get(position, stm, m);
     }
 
     self.sort(&scores);
