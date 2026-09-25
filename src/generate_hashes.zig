@@ -244,41 +244,45 @@ pub fn get(pm: Matrix(N), i: usize) u64 {
 
 pub fn specialHash(pm: Matrix(N)) Row(N) {
     assert(pm.len == 255);
-    var key: Row(N) = 0;
+    var hash: Row(N) = 0;
     for (0..64) |i| {
         for (0..3) |j| {
-            key ^= pm[i + 64 * j];
+            hash ^= pm[i + 64 * j];
         }
     }
-    return key;
+    return hash;
+}
+
+pub fn mungeHash(h: u64) u64 {
+    return (@bitReverse(h) << 16) | (h & 0xFFFF);
 }
 
 pub fn getHash(pm: Matrix(N), sq: usize, ptype: usize) u64 {
     assert(sq < 64);
     assert(ptype < 16);
-    var key: u64 = 0;
-    key ^= if ((ptype & (1 << 0)) != 0) get(pm, sq + 64 * 0) else 0;
-    key ^= if ((ptype & (1 << 1)) != 0) get(pm, sq + 64 * 1) else 0;
-    key ^= if ((ptype & (1 << 2)) != 0) get(pm, sq + 64 * 2) else 0;
-    key ^= if ((ptype & (1 << 3)) != 0) get(pm, sq + 64 * 3) else 0;
-    return key;
+    var hash: u64 = 0;
+    hash ^= if ((ptype & (1 << 0)) != 0) get(pm, sq + 64 * 0) else 0;
+    hash ^= if ((ptype & (1 << 1)) != 0) get(pm, sq + 64 * 1) else 0;
+    hash ^= if ((ptype & (1 << 2)) != 0) get(pm, sq + 64 * 2) else 0;
+    hash ^= if ((ptype & (1 << 3)) != 0) get(pm, sq + 64 * 3) else 0;
+    return mungeHash(hash);
 }
 
 pub fn getCastleHash(pm: Matrix(N), castle: usize) u64 {
-    var key: u64 = 0;
-    key ^= if ((castle & (1 << 0)) != 0) getHash(pm, 0, 3 ^ 7) else 0;
-    key ^= if ((castle & (1 << 1)) != 0) getHash(pm, 7, 3 ^ 7) else 0;
-    key ^= if ((castle & (1 << 2)) != 0) getHash(pm, 56, 3 ^ 7) else 0;
-    key ^= if ((castle & (1 << 3)) != 0) getHash(pm, 63, 3 ^ 7) else 0;
-    return key;
+    var hash: u64 = 0;
+    hash ^= if ((castle & (1 << 0)) != 0) getHash(pm, 0, 3 ^ 7) else 0;
+    hash ^= if ((castle & (1 << 1)) != 0) getHash(pm, 7, 3 ^ 7) else 0;
+    hash ^= if ((castle & (1 << 2)) != 0) getHash(pm, 56, 3 ^ 7) else 0;
+    hash ^= if ((castle & (1 << 3)) != 0) getHash(pm, 63, 3 ^ 7) else 0;
+    return mungeHash(hash);
 }
 
 pub fn getStmHash(pm: Matrix(N)) u64 {
-    var key: u64 = 0;
+    var hash: u64 = 0;
     for (0..63) |i| {
-        key ^= getHash(pm, i, 8);
+        hash ^= getHash(pm, i, 8);
     }
-    return key;
+    return mungeHash(hash);
 }
 
 pub fn main(init: std.process.Init) !void {
