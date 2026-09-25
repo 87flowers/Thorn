@@ -288,10 +288,18 @@ fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, cache_e
         searched_moves += 1;
 
         var s: Score = undefined;
-        if (expected != .pv or searched_moves > 1)
+        if (depth >= 3 and searched_moves >= 3) {
+            const reduction = 2048 + 256 * log2i(depth) * log2i(searched_moves);
+            const lmr_depth = std.math.clamp(depth - @divTrunc(reduction, 1024), 1, depth - 1);
+            s = -try self.search(expected.next(), ctrl, m, -alpha - 1, -alpha, ply + 1, lmr_depth);
+            if (s > alpha and lmr_depth < depth - 1)
+                s = -try self.search(expected.next(), ctrl, m, -alpha - 1, -alpha, ply + 1, depth - 1);
+        } else if (expected != .pv or searched_moves > 1) {
             s = -try self.search(expected.next(), ctrl, m, -alpha - 1, -alpha, ply + 1, depth - 1);
-        if (expected == .pv and (searched_moves == 1 or s > alpha))
+        }
+        if (expected == .pv and (searched_moves == 1 or s > alpha)) {
             s = -try self.search(.pv, ctrl, m, -beta, -alpha, ply + 1, depth - 1);
+        }
 
         if (s > best_score) {
             best_score = s;
@@ -415,6 +423,10 @@ fn isThreeFoldDraw(self: *Search, end: usize) bool {
 
 fn ss(self: *Search, ply: i32) *Stack {
     return &self.stack[@intCast(ply + stack_offset)];
+}
+
+fn log2i(x: anytype) i32 {
+    return std.math.log2_int(u32, @intCast(x));
 }
 
 const stack_offset = 7;
