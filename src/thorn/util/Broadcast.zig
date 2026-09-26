@@ -21,24 +21,24 @@ pub fn Broadcast(comptime T: type) type {
         }
 
         pub fn broadcast(self: *Self, io: std.Io, msg: *const T) void {
-            const prev: Futex = @bitCast(self.futex.load(.acquire));
+            const prev: Futex = @bitCast(self.futex.load(.seq_cst));
             assert(prev.count == 0);
 
-            self.msg.store(msg, .monotonic);
+            self.msg.store(msg, .seq_cst);
 
             self.futex.store(@bitCast(Futex{
                 .generation = ~prev.generation,
                 .count = self.reader_count,
-            }), .release);
+            }), .seq_cst);
             io.futexWake(u32, &self.futex.raw, self.reader_count);
 
             while (true) {
-                const f: Futex = @bitCast(self.futex.load(.acquire));
+                const f: Futex = @bitCast(self.futex.load(.seq_cst));
                 if (f.count == 0) break;
                 io.futexWaitUncancelable(u32, &self.futex.raw, @bitCast(f));
             }
 
-            self.msg.store(null, .monotonic);
+            self.msg.store(null, .seq_cst);
         }
 
         pub const Receiver = struct {
@@ -51,23 +51,23 @@ pub fn Broadcast(comptime T: type) type {
 
             pub fn wait(self: *Receiver, io: std.Io) *const T {
                 while (true) {
-                    const f: Futex = @bitCast(self.sender.futex.load(.acquire));
+                    const f: Futex = @bitCast(self.sender.futex.load(.seq_cst));
                     if (f.generation != self.generation) break;
                     io.futexWaitUncancelable(u32, &self.sender.futex.raw, @bitCast(f));
                 }
 
                 self.generation = ~self.generation;
 
-                return self.sender.msg.load(.monotonic).?;
+                return self.sender.msg.load(.seq_cst).?;
             }
 
             pub fn done(self: *Receiver, io: std.Io) void {
                 const f: Futex = @bitCast(self.sender.futex.rmw(.Sub, @bitCast(Futex{
                     .count = 1,
                     .generation = 0,
-                }), .release));
+                }), .seq_cst));
 
-                if (f.count == 1) io.futexWake(u32, &self.sender.futex.raw, self.sender.reader_count);
+                if (f.count == 1) io.futexWake(u32, &self.sender.futex.raw, std.math.maxInt(u32));
             }
         };
 
