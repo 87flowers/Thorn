@@ -233,16 +233,23 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
 
     const parent_position: *const Position = &self.ss(ply - 1).position;
 
-    _ = self.nodes.rmw(.Add, 1, .monotonic);
     self.ss(ply).pv.clear();
 
-    self.hash_stack.push(self.hash_stack.back().move(parent_position, parent_move));
-    defer self.hash_stack.pop();
-
+    _ = self.nodes.rmw(.Add, 1, .monotonic);
     if (ctrl.checkHardTermination(self) or self.stopping.load(.monotonic)) {
         for (self.searches) |*s| s.stopping.store(true, .monotonic);
         return Abort.Abort;
     }
+
+    self.hash_stack.push(self.hash_stack.back().move(parent_position, parent_move));
+    defer self.hash_stack.pop();
+
+    const new_fifty_move_clock: u16 = if (parent_move.isCapture() or parent_position.ptypeAt(parent_move.from()) == .p)
+        0
+    else
+        parent_position.fifty_move_clock + 1;
+    const new_ply_since_null = if (parent_move.isSome()) parent_position.ply_since_null + 1 else 0;
+    if (new_fifty_move_clock >= 100 or self.isThreeFoldDraw(@min(new_ply_since_null, new_fifty_move_clock))) return score.draw;
 
     const cache_entry = self.cache.lookup(self.hash_stack.back(), ply);
     if (cache_entry) |lr| if (expected != .pv and lr.depth >= depth and switch (lr.kind) {
@@ -258,13 +265,6 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
     defer self.eval.pop();
 
     if (ply >= max_depth) return self.eval.evaluation();
-
-    const new_fifty_move_clock: u16 = if (parent_move.isCapture() or parent_position.ptypeAt(parent_move.from()) == .p)
-        0
-    else
-        parent_position.fifty_move_clock + 1;
-    const new_ply_since_null = if (parent_move.isSome()) parent_position.ply_since_null + 1 else 0;
-    if (new_fifty_move_clock >= 100 or self.isThreeFoldDraw(@min(new_ply_since_null, new_fifty_move_clock))) return score.draw;
 
     self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
 
@@ -349,16 +349,16 @@ fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, cache_e
 fn qsearch(self: *Search, comptime leaf_expected: NodeKind, ctrl: anytype, parent_move: Move, alpha: Score, beta: Score, ply: i32) Abort!Score {
     const parent_position: *const Position = &self.ss(ply - 1).position;
 
-    _ = self.nodes.rmw(.Add, 1, .monotonic);
     self.ss(ply).pv.clear();
 
-    self.hash_stack.push(self.hash_stack.back().move(parent_position, parent_move));
-    defer self.hash_stack.pop();
-
+    _ = self.nodes.rmw(.Add, 1, .monotonic);
     if (ctrl.checkHardTermination(self) or self.stopping.load(.monotonic)) {
         for (self.searches) |*s| s.stopping.store(true, .monotonic);
         return Abort.Abort;
     }
+
+    self.hash_stack.push(self.hash_stack.back().move(parent_position, parent_move));
+    defer self.hash_stack.pop();
 
     self.eval.push(parent_position, parent_move);
     defer self.eval.pop();
