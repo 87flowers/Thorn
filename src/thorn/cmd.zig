@@ -90,6 +90,7 @@ pub fn processLine(
             try engine.setCacheSize(io, gpa, mb);
         }
     } else if (std.ascii.eqlIgnoreCase(cmd, "isready")) {
+        engine.wait(io);
         try out.print("readyok\n", .{});
         try out.flush();
     } else if (std.ascii.eqlIgnoreCase(cmd, "wait")) {

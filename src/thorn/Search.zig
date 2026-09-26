@@ -192,6 +192,8 @@ fn go(self: *Search, out: *std.Io.Writer, ctrl: anytype) !void {
         },
         .none => {},
     }
+
+    for (self.searches) |*s| s.stopping.store(true, .monotonic);
 }
 
 fn printInfoLine(self: *Search, out: *std.Io.Writer, depth: i32, s: Score, pv: *const Line) !void {
