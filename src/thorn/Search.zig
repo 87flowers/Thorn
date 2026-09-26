@@ -276,13 +276,12 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
 
     if (expected != .pv and depth <= 7 and static_eval - 128 * depth >= beta) return static_eval;
 
+    self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
+
     if (expected != .pv and depth <= 5 and static_eval + 512 + 256 * depth < alpha) {
-        self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
         const s = try self.qsearchBody(expected, ctrl, alpha, beta, ply);
         if (s <= alpha) return s;
     }
-
-    self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
 
     return self.searchBody(expected, ctrl, cache_entry, alpha, beta, ply, depth);
 }
