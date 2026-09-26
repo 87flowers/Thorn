@@ -276,7 +276,7 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
 
     if (expected != .pv and depth <= 7 and static_eval - 128 * depth >= beta) return static_eval;
 
-    if (expected != .pv and depth <= 5 and static_eval + 128 * depth < alpha) {
+    if (expected != .pv and depth <= 5 and static_eval + 512 + 256 * depth < alpha) {
         const s = try self.qsearchBody(expected, ctrl, alpha, beta, ply);
         if (s <= alpha) return s;
     }
