@@ -263,8 +263,11 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
 
     self.eval.push(parent_position, parent_move);
     defer self.eval.pop();
+    const static_eval = self.eval.evaluation();
 
-    if (ply >= max_depth) return self.eval.evaluation();
+    if (ply >= max_depth) return static_eval;
+
+    if (expected != .pv and depth <= 7 and static_eval - 128 * depth >= beta) return static_eval;
 
     self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
 
