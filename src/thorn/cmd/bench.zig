@@ -9,7 +9,7 @@ pub fn run(io: std.Io, gpa: std.mem.Allocator, out: *std.Io.Writer, engine: *Eng
 
     for (fens, 0..) |fen, i| {
         game.setPosition(try Position.parse(fen));
-        engine.go(io, out, &game, timer, .{ .depth = bench_depth });
+        engine.go(io, &game, timer, .{ .depth = bench_depth });
         total_nodes += engine.waitForTotalNodes(io);
         try out.print("{}/{} ...\r", .{ i, fens.len });
         try out.flush();

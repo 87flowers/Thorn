@@ -71,8 +71,6 @@ fn threadMain(self: *Search) !void {
                 self.channel.done(self.io);
             },
             .go => |*m| {
-                const out = m.out;
-
                 self.search_start = m.search_start;
                 self.root_position = m.game.position;
                 self.hash_waterline = m.game.hash_stack.len;
@@ -103,12 +101,17 @@ fn threadMain(self: *Search) !void {
                                 ctrl.nodes_limit.hard = m.limits.hard_nodes;
                             }
                             self.channel.done(self.io);
-                            try self.go(out, &ctrl);
+
+                            var stdout_buffer: [1024]u8 = undefined;
+                            var stdout_file_writer: std.Io.File.Writer = .init(.stdout(), self.io, &stdout_buffer);
+                            const stdout = &stdout_file_writer.interface;
+
+                            try self.go(stdout, &ctrl);
                         },
                     }
                 } else {
                     self.channel.done(self.io);
-                    try self.go(out, &control.none);
+                    try self.go(null, &control.none);
                 }
             },
         }
@@ -138,7 +141,7 @@ fn newGame(self: *Search) void {
     self.quiet_history.reset();
 }
 
-fn go(self: *Search, out: *std.Io.Writer, ctrl: anytype) !void {
+fn go(self: *Search, out: ?*std.Io.Writer, ctrl: anytype) !void {
     self.stack = @splat(.{});
 
     var last_pv: Line = .{};
@@ -187,34 +190,38 @@ fn go(self: *Search, out: *std.Io.Writer, ctrl: anytype) !void {
     switch (self.output_mode) {
         .uci => {
             try self.printInfoLine(out, last_depth, last_score, &last_pv);
-            try out.print("bestmove {f}\n", .{last_pv.storage[0].toString(self.move_format)});
-            try out.flush();
+            if (out) |o| {
+                try o.print("bestmove {f}\n", .{last_pv.storage[0].toString(self.move_format)});
+                try o.flush();
+            }
         },
         .none => {},
     }
 }
 
-fn printInfoLine(self: *Search, out: *std.Io.Writer, depth: i32, s: Score, pv: *const Line) !void {
+fn printInfoLine(self: *Search, out: ?*std.Io.Writer, depth: i32, s: Score, pv: *const Line) !void {
     if (self.output_mode == .none) return;
 
-    const elapsed = self.search_start.untilNow(self.io, .awake).toMilliseconds();
-    const nodes = self.nodes.load(.monotonic);
-    const nps = nodes * 1000 / @as(u64, @intCast(@max(1, elapsed)));
+    if (out) |o| {
+        const elapsed = self.search_start.untilNow(self.io, .awake).toMilliseconds();
+        const nodes = self.nodes.load(.monotonic);
+        const nps = nodes * 1000 / @as(u64, @intCast(@max(1, elapsed)));
 
-    try out.print("info", .{});
-    try out.print(" depth {}", .{depth});
-    try out.print(" nodes {}", .{nodes});
-    if (score.distanceToMate(s)) |dtm| {
-        try out.print(" score mate {}", .{dtm});
-    } else {
-        try out.print(" score cp {}", .{s});
+        try o.print("info", .{});
+        try o.print(" depth {}", .{depth});
+        try o.print(" nodes {}", .{nodes});
+        if (score.distanceToMate(s)) |dtm| {
+            try o.print(" score mate {}", .{dtm});
+        } else {
+            try o.print(" score cp {}", .{s});
+        }
+        try o.print(" time {}", .{elapsed});
+        try o.print(" nps {}", .{nps});
+        try o.print(" pv", .{});
+        for (0..pv.len) |i| try o.print(" {f}", .{pv.storage[i].toString(self.move_format)});
+        try o.print("\n", .{});
+        try o.flush();
     }
-    try out.print(" time {}", .{elapsed});
-    try out.print(" nps {}", .{nps});
-    try out.print(" pv", .{});
-    for (0..pv.len) |i| try out.print(" {f}", .{pv.storage[i].toString(self.move_format)});
-    try out.print("\n", .{});
-    try out.flush();
 }
 
 fn searchRoot(self: *Search, ctrl: anytype, alpha: Score, beta: Score, depth: i32) Abort!Score {

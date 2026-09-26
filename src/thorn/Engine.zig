@@ -32,10 +32,9 @@ pub fn newGame(self: *Engine, io: std.Io) void {
     self.cache.clear();
 }
 
-pub fn go(self: *Engine, io: std.Io, out: *std.Io.Writer, game: *Game, search_start: std.Io.Timestamp, limits: SearchLimit) void {
+pub fn go(self: *Engine, io: std.Io, game: *Game, search_start: std.Io.Timestamp, limits: SearchLimit) void {
     const msg: Message = .{ .go = .{
         .game = game,
-        .out = out,
         .limits = limits,
         .search_start = search_start,
     } };
@@ -108,7 +107,6 @@ pub const Message = union(MessageKind) {
     move_format: MoveFormat,
     go: struct {
         game: *Game,
-        out: *std.Io.Writer,
         limits: SearchLimit,
         search_start: std.Io.Timestamp,
     },

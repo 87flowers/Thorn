@@ -9,11 +9,11 @@ pub fn main(init: std.process.Init) !void {
     const gpa = init.gpa;
 
     var stdout_buffer: [1024]u8 = undefined;
-    var stdout_file_writer: Io.File.Writer = .init(.stdout(), io, &stdout_buffer);
+    var stdout_file_writer: std.Io.File.Writer = .init(.stdout(), io, &stdout_buffer);
     const stdout = &stdout_file_writer.interface;
 
     const stdin_buffer = try arena.alloc(u8, 1024 * 1024);
-    var stdin_file_reader: Io.File.Reader = .init(.stdin(), io, stdin_buffer);
+    var stdin_file_reader: std.Io.File.Reader = .init(.stdin(), io, stdin_buffer);
     const stdin = &stdin_file_reader.interface;
 
     var game: thorn.Game = .startpos;
@@ -46,5 +46,4 @@ test {
 }
 
 const std = @import("std");
-const Io = std.Io;
 const thorn = @import("thorn.zig");
