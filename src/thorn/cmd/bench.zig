@@ -22,7 +22,7 @@ pub fn run(io: std.Io, gpa: std.mem.Allocator, out: *std.Io.Writer, engine: *Eng
     try out.flush();
 }
 
-const bench_depth = 6;
+const bench_depth = 12;
 
 const fens = [_][]const u8{
     "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
