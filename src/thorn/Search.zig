@@ -302,7 +302,7 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
         if (depth <= 7 and static_eval - 128 * depth >= beta) return static_eval;
 
         if (depth >= 4 and self.ss(ply - 1).move.isSome() and static_eval >= beta) {
-            const reduction = 4;
+            const reduction = @divFloor(4096 + 342 * depth, 1024);
 
             const null_score = blk: {
                 self.ss(ply).move = .none;
@@ -320,7 +320,15 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
                 break :blk -try self.searchBody(expected.next(), ctrl, null_cache_entry, -beta, -beta + 1, ply + 1, depth - reduction);
             };
 
-            if (null_score >= beta) return null_score;
+            if (null_score >= beta) {
+                if (self.nmr_ply != null) return null_score;
+
+                self.nmr_ply = ply;
+                defer self.nmr_ply = null;
+
+                const s = try self.searchBody(expected, ctrl, cache_entry, alpha, beta, ply, @divFloor(depth, 2));
+                if (s >= beta) return s;
+            }
         }
     }
 
