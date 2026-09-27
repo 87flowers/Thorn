@@ -1,19 +1,20 @@
 pub fn Broadcast(comptime T: type) type {
     return struct {
-        msg: std.atomic.Value(?*const T),
-        futex: std.atomic.Value(u32),
-        reader_count: u31,
+        msg: std.atomic.Value(?*const T) = .init(null),
+        futex: std.atomic.Value(u32) = .init(0),
+        reader_count: u31 = 0,
 
         pub fn reset(self: *Self, reader_count: u31) void {
-            self.msg = .init(null);
-            self.futex = .init(@bitCast(Futex{
+            self.msg.store(null, .seq_cst);
+            self.futex.store(@bitCast(Futex{
                 .count = 0,
                 .generation = 0,
-            }));
+            }), .seq_cst);
             self.reader_count = reader_count;
         }
 
         pub fn createReceiver(self: *Self) Receiver {
+            assert(@as(Futex, @bitCast(self.futex.load(.monotonic))).generation == 0);
             return .{
                 .sender = self,
                 .generation = 0,
