@@ -293,33 +293,35 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
 
     if (ply >= max_depth) return static_eval;
 
-    if (expected != .pv and depth <= 7 and static_eval - 128 * depth >= beta) return static_eval;
-
     self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
     const position: *const Position = &self.ss(ply).position;
 
     const is_in_check = position.checkers().isNonEmpty();
 
-    if (expected != .pv and !is_in_check and depth >= 4 and self.ss(ply - 1).move.isSome() and static_eval >= beta) {
-        const reduction = 4;
+    if (expected != .pv and !is_in_check) {
+        if (depth <= 7 and static_eval - 128 * depth >= beta) return static_eval;
 
-        const null_score = blk: {
-            self.ss(ply).move = .none;
+        if (depth >= 4 and self.ss(ply - 1).move.isSome() and static_eval >= beta) {
+            const reduction = 4;
 
-            self.hash_stack.push(self.hash_stack.back().moveNull(position));
-            defer self.hash_stack.pop();
+            const null_score = blk: {
+                self.ss(ply).move = .none;
 
-            const null_cache_entry = self.cache.lookup(self.hash_stack.back(), ply + 1);
+                self.hash_stack.push(self.hash_stack.back().moveNull(position));
+                defer self.hash_stack.pop();
 
-            self.eval.pushNull(position);
-            defer self.eval.pop();
+                const null_cache_entry = self.cache.lookup(self.hash_stack.back(), ply + 1);
 
-            self.ss(ply).position.moveNull(&self.ss(ply + 1).position);
+                self.eval.pushNull(position);
+                defer self.eval.pop();
 
-            break :blk -try self.searchBody(expected.next(), ctrl, null_cache_entry, -beta, -beta + 1, ply + 1, depth - reduction);
-        };
+                self.ss(ply).position.moveNull(&self.ss(ply + 1).position);
 
-        if (null_score >= beta) return null_score;
+                break :blk -try self.searchBody(expected.next(), ctrl, null_cache_entry, -beta, -beta + 1, ply + 1, depth - reduction);
+            };
+
+            if (null_score >= beta) return null_score;
+        }
     }
 
     return self.searchBody(expected, ctrl, cache_entry, alpha, beta, ply, depth);
