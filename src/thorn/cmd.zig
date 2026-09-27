@@ -68,7 +68,7 @@ pub fn processLine(
                 limits.depth = value;
             }
         }
-        engine.go(io, out, game, time_start, limits);
+        engine.go(io, game, time_start, limits);
     } else if (std.ascii.eqlIgnoreCase(cmd, "uci")) {
         try out.print(
             \\id name Thorn {s}
