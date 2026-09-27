@@ -127,6 +127,18 @@ pub fn push(self: *Eval, parent_position: *const Position, m: Move) void {
     });
 }
 
+pub fn pushNull(self: *Eval, parent_position: *const Position) void {
+    const psqt = self.stack.back().psqt;
+    const phase = self.stack.back().phase;
+    var value = @divFloor(psqt[0] * phase + psqt[1] * (24 - phase), 24);
+    if (parent_position.sideToMove() == .white) value = -value;
+    self.stack.push(.{
+        .psqt = psqt,
+        .phase = phase,
+        .value = value,
+    });
+}
+
 pub fn pop(self: *Eval) void {
     self.stack.pop();
 }

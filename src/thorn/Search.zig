@@ -25,6 +25,7 @@ stack: [max_depth + stack_offset + 3]Stack,
 
 eval: Eval,
 
+nmr_ply: ?i32,
 quiet_history: history.Quiet,
 
 pub const max_depth = 240;
@@ -150,6 +151,8 @@ fn go(self: *Search, out: ?*std.Io.Writer, ctrl: anytype) !void {
 
     self.ss(0).position = self.root_position;
     self.eval.reset(&self.root_position);
+
+    self.nmr_ply = null;
 
     var depth: i32 = 1;
     iterative_deepening: while (depth < max_depth) : (depth += 1) {
@@ -277,6 +280,39 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
     if (expected != .pv and depth <= 7 and static_eval - 128 * depth >= beta) return static_eval;
 
     self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
+    const position: *const Position = &self.ss(ply).position;
+
+    const is_in_check = position.checkers().isNonEmpty();
+
+    if (expected != .pv and !is_in_check and depth >= 4 and self.nmr_ply != ply and self.ss(ply - 1).move.isSome() and static_eval - 100 >= beta) {
+        const reduction = 4;
+
+        const null_score = blk: {
+            self.ss(ply).move = .none;
+
+            self.hash_stack.push(self.hash_stack.back().moveNull(position));
+            defer self.hash_stack.pop();
+
+            const null_cache_entry = self.cache.lookup(self.hash_stack.back(), ply + 1);
+
+            self.eval.pushNull(position);
+            defer self.eval.pop();
+
+            self.ss(ply).position.moveNull(&self.ss(ply + 1).position);
+
+            break :blk -try self.searchBody(expected.next(), ctrl, null_cache_entry, -beta, -beta, ply + 1, depth - reduction);
+        };
+
+        if (null_score >= beta) {
+            if (self.nmr_ply != null) return null_score;
+
+            self.nmr_ply = ply;
+            defer self.nmr_ply = null;
+
+            const s = try self.searchBody(expected, ctrl, cache_entry, alpha, beta, ply, @divTrunc(depth, 2));
+            if (s >= beta) return s;
+        }
+    }
 
     return self.searchBody(expected, ctrl, cache_entry, alpha, beta, ply, depth);
 }
@@ -296,6 +332,8 @@ fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, cache_e
     var actual_kind: NodeKind = .all;
     while (moves.next()) |m| {
         searched_moves += 1;
+
+        self.ss(ply).move = m;
 
         var s: Score = undefined;
         if (depth >= 3 and searched_moves >= 3) {

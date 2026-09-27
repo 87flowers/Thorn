@@ -123,6 +123,16 @@ pub const Hash = enum(u64) {
         return new_hash;
     }
 
+    pub fn moveNull(self: Hash, position: *const Position) Hash {
+        var new_hash = self;
+
+        if (position.enpassant.isSome()) new_hash.toggleEnpassant(position.enpassant);
+
+        new_hash.toggleStm();
+
+        return new_hash;
+    }
+
     pub fn togglePiece(self: *Hash, piece: Piece, sq: Square) void {
         self.togglePtype(piece.color(), piece.ptype(), sq);
     }
