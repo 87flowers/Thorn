@@ -301,7 +301,7 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
     const is_in_check = position.checkers().isNonEmpty();
 
     if (expected != .pv and !is_in_check and depth >= 4 and self.ss(ply - 1).move.isSome() and static_eval >= beta) {
-        const reduction = @divFloor(4096 + 342 * depth, 1024);
+        const reduction = @divFloor(3072 + 342 * depth, 1024);
 
         const null_score = blk: {
             self.ss(ply).move = .none;
