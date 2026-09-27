@@ -39,5 +39,13 @@ pub fn adjustPlysToMate(s: Score, adjustment: i32) Score {
         s;
 }
 
+pub fn toUciMate(s: Score) ?i32 {
+    if (!isTheoretical(s)) return null;
+    return if (s < 0)
+        -@divTrunc(distanceToMate(s).?, 2)
+    else
+        @divTrunc(distanceToMate(s).? + 1, 2);
+}
+
 const std = @import("std");
 const assert = std.debug.assert;

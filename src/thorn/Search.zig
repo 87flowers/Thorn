@@ -210,8 +210,8 @@ fn printInfoLine(self: *Search, out: ?*std.Io.Writer, depth: i32, s: Score, pv: 
         try o.print("info", .{});
         try o.print(" depth {}", .{depth});
         try o.print(" nodes {}", .{nodes});
-        if (score.distanceToMate(s)) |dtm| {
-            try o.print(" score mate {}", .{dtm});
+        if (score.toUciMate(s)) |mate| {
+            try o.print(" score mate {}", .{mate});
         } else {
             try o.print(" score cp {}", .{s});
         }
