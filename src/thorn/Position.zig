@@ -423,6 +423,18 @@ pub fn move(noalias self: *const Position, noalias new_pos: *Position, m: Move) 
     new_pos.ply_since_null += 1;
 }
 
+pub fn moveNull(noalias self: *const Position, noalias new_pos: *Position) void {
+    new_pos.* = self.*;
+    new_pos.precalc = false;
+
+    new_pos.enpassant = .none;
+
+    new_pos.fifty_move_clock += 1;
+
+    new_pos.ply += 1;
+    new_pos.ply_since_null = 0;
+}
+
 fn removePiece(self: *Position, sq: Square, piece: Piece, id: PieceId) void {
     const s = sq.toIndex();
     const c = piece.color().toIndex();

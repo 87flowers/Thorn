@@ -15,6 +15,10 @@ pub fn isEmpty(self: PieceSet) bool {
     return self.raw == 0;
 }
 
+pub fn isNonEmpty(self: PieceSet) bool {
+    return self.raw != 0;
+}
+
 pub fn popcount(self: PieceSet) i32 {
     return @popCount(self.raw);
 }

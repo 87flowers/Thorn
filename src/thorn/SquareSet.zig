@@ -85,6 +85,10 @@ pub const SquareSet = packed struct {
         return self.raw == 0;
     }
 
+    pub fn isNonEmpty(self: SquareSet) bool {
+        return self.raw != 0;
+    }
+
     pub fn lsb(self: SquareSet) Square {
         assert(!self.isEmpty());
         return Square.fromIndex(@ctz(self.raw));
