@@ -429,6 +429,8 @@ pub fn moveNull(noalias self: *const Position, noalias new_pos: *Position) void 
 
     new_pos.enpassant = .none;
 
+    new_pos.fifty_move_clock += 1;
+
     new_pos.ply += 1;
     new_pos.ply_since_null = 0;
 }

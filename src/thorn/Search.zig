@@ -284,8 +284,8 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
 
     const is_in_check = position.checkers().isNonEmpty();
 
-    if (expected != .pv and !is_in_check and depth >= 4 and self.nmr_ply != ply and self.ss(ply - 1).move.isSome() and static_eval >= beta + 20) {
-        const reduction = 3;
+    if (expected != .pv and !is_in_check and depth >= 4 and self.ss(ply - 1).move.isSome() and static_eval >= beta) {
+        const reduction = 4;
 
         const null_score = blk: {
             self.ss(ply).move = .none;
@@ -303,15 +303,7 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
             break :blk -try self.searchBody(expected.next(), ctrl, null_cache_entry, -beta, -beta + 1, ply + 1, depth - reduction);
         };
 
-        if (null_score >= beta) {
-            if (self.nmr_ply != null) return null_score;
-
-            self.nmr_ply = ply;
-            defer self.nmr_ply = null;
-
-            const s = try self.searchBody(expected, ctrl, cache_entry, alpha, beta, ply, @divTrunc(depth, 2));
-            if (s >= beta) return s;
-        }
+        if (null_score >= beta) return null_score;
     }
 
     return self.searchBody(expected, ctrl, cache_entry, alpha, beta, ply, depth);
