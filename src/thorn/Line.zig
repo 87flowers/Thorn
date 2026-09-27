@@ -7,6 +7,10 @@ pub fn clear(self: *Line) void {
     self.len = 0;
 }
 
+pub fn firstMove(self: *Line) Move {
+    return if (self.len > 0) self.storage[0] else .none;
+}
+
 pub fn copyFrom(self: *Line, other: *const Line) void {
     self.len = other.len;
     @memcpy(self.storage[0..other.len], other.storage[0..other.len]);

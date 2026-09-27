@@ -147,7 +147,7 @@ fn go(self: *Search, out: ?*std.Io.Writer, ctrl: anytype) !void {
 
     var last_pv: Line = .{};
     var last_score: Score = score.none;
-    var last_depth: i32 = -1;
+    var last_depth: i32 = 0;
 
     self.ss(0).position = self.root_position;
     self.eval.reset(&self.root_position);
@@ -190,11 +190,13 @@ fn go(self: *Search, out: ?*std.Io.Writer, ctrl: anytype) !void {
         if (self.index == 0) try self.printInfoLine(out, last_depth, last_score, &last_pv);
     }
 
+    if (last_pv.firstMove().isNone()) last_score = self.emergencyMove(&last_pv);
+
     switch (self.output_mode) {
         .uci => {
             try self.printInfoLine(out, last_depth, last_score, &last_pv);
             if (out) |o| {
-                try o.print("bestmove {f}\n", .{last_pv.storage[0].toString(self.move_format)});
+                try o.print("bestmove {f}\n", .{last_pv.firstMove().toString(self.move_format)});
                 try o.flush();
             }
         },
@@ -225,6 +227,20 @@ fn printInfoLine(self: *Search, out: ?*std.Io.Writer, depth: i32, s: Score, pv: 
         try o.print("\n", .{});
         try o.flush();
     }
+}
+
+fn emergencyMove(self: *Search, pv: *Line) Score {
+    // Try cache first
+    const cache_entry = self.cache.lookup(self.hash_stack.back(), 0);
+    if (cache_entry) |lr| if (self.root_position.isLegal(lr.move)) {
+        pv.writeLine(lr.move, &.{});
+        return lr.score;
+    };
+
+    // Overwise, rely on our move ordering
+    var moves: MoveSelector = .new(self, &self.root_position, .none);
+    pv.writeLine(moves.next() orelse .none, &.{});
+    return 0;
 }
 
 fn searchRoot(self: *Search, ctrl: anytype, alpha: Score, beta: Score, depth: i32) Abort!Score {
