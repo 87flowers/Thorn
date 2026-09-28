@@ -1,11 +1,10 @@
-entries: []Entry,
+entries: []Entry = &.{},
 
 pub const default_size_mb = 16;
+pub const max_size_mb = 1048576;
 
-pub fn init(gpa: std.mem.Allocator) !Cache {
-    return .{
-        .entries = try gpa.alloc(Entry, entryCountFromMb(default_size_mb)),
-    };
+pub fn init(self: *Cache, gpa: std.mem.Allocator) !void {
+    self.entries = try gpa.alloc(Entry, entryCountFromMb(default_size_mb));
 }
 
 pub fn deinit(self: *Cache, gpa: std.mem.Allocator) void {

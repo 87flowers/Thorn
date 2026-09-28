@@ -73,9 +73,17 @@ pub fn processLine(
         try out.print(
             \\id name Thorn {s}
             \\id author 87 (87flowers.com)
+            \\option name Hash type spin default {} min 1 max {}
+            \\option name Threads type spin default 1 min 1 max {}
+            \\option name UCI_Chess960 type check default false
             \\uciok
             \\
-        , .{@import("../main.zig").thorn_version});
+        , .{
+            @import("../main.zig").thorn_version,
+            thorn.Cache.default_size_mb,
+            thorn.Cache.max_size_mb,
+            thorn.Engine.max_threads,
+        });
         try out.flush();
     } else if (std.ascii.eqlIgnoreCase(cmd, "ucinewgame")) {
         engine.newGame(io);
@@ -88,10 +96,23 @@ pub fn processLine(
         if (std.ascii.eqlIgnoreCase(name, "Hash")) {
             const mb = std.fmt.parseUnsigned(usize, value_str, 10) catch return .next;
             try engine.setCacheSize(io, gpa, mb);
+        } else if (std.ascii.eqlIgnoreCase(name, "Threads")) {
+            const threads = std.fmt.parseUnsigned(usize, value_str, 10) catch return .next;
+            try engine.setThreadCount(io, gpa, threads);
+        } else if (std.ascii.eqlIgnoreCase(name, "UCI_Chess960")) {
+            const move_format: MoveFormat = if (std.ascii.eqlIgnoreCase(name, "true"))
+                .frc
+            else if (std.ascii.eqlIgnoreCase(name, "false"))
+                .classical
+            else
+                return .next;
+            engine.setMoveFormat(io, move_format);
         }
     } else if (std.ascii.eqlIgnoreCase(cmd, "isready")) {
         try out.print("readyok\n", .{});
         try out.flush();
+    } else if (std.ascii.eqlIgnoreCase(cmd, "stop")) {
+        engine.stop(io);
     } else if (std.ascii.eqlIgnoreCase(cmd, "wait")) {
         engine.wait(io);
     } else if (std.ascii.eqlIgnoreCase(cmd, "d")) {
@@ -124,4 +145,5 @@ const thorn = @import("../thorn.zig");
 const Engine = thorn.Engine;
 const Game = thorn.Game;
 const Move = thorn.Move;
+const MoveFormat = thorn.MoveFormat;
 const Position = thorn.Position;

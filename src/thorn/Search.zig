@@ -38,14 +38,16 @@ pub fn launch(
     searches: []Search,
     cache: *Cache,
     channel: Broadcast(Engine.Message).Receiver,
+    move_format: MoveFormat,
+    output_mode: Engine.OutputMode,
 ) !void {
     self.io = io;
     self.searches = searches;
     self.cache = cache;
     self.channel = channel;
     self.index = index;
-    self.output_mode = .none;
-    self.move_format = .frc;
+    self.output_mode = output_mode;
+    self.move_format = move_format;
     self.newGame();
     self.thread = try std.Thread.spawn(.{}, threadMain, .{self});
 }
@@ -202,14 +204,18 @@ fn go(self: *Search, out: ?*std.Io.Writer, ctrl: anytype) !void {
         },
         .none => {},
     }
+
+    for (self.searches) |*se| se.stopping.store(true, .monotonic);
 }
 
 fn printInfoLine(self: *Search, out: ?*std.Io.Writer, depth: i32, s: Score, pv: *const Line) !void {
     if (self.output_mode == .none) return;
 
     if (out) |o| {
+        var nodes: u64 = 0;
+        for (self.searches) |*se| nodes += se.nodes.load(.monotonic);
+
         const elapsed = self.search_start.untilNow(self.io, .awake).toMilliseconds();
-        const nodes = self.nodes.load(.monotonic);
         const nps = nodes * 1000 / @as(u64, @intCast(@max(1, elapsed)));
 
         try o.print("info", .{});
@@ -263,7 +269,7 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
 
     _ = self.nodes.rmw(.Add, 1, .monotonic);
     if (ctrl.checkHardTermination(self) or self.stopping.load(.monotonic)) {
-        for (self.searches) |*s| s.stopping.store(true, .monotonic);
+        for (self.searches) |*se| se.stopping.store(true, .monotonic);
         return Abort.Abort;
     }
 
@@ -411,7 +417,7 @@ fn qsearch(self: *Search, comptime leaf_expected: NodeKind, ctrl: anytype, paren
 
     _ = self.nodes.rmw(.Add, 1, .monotonic);
     if (ctrl.checkHardTermination(self) or self.stopping.load(.monotonic)) {
-        for (self.searches) |*s| s.stopping.store(true, .monotonic);
+        for (self.searches) |*se| se.stopping.store(true, .monotonic);
         return Abort.Abort;
     }
 
