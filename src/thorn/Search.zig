@@ -260,7 +260,9 @@ fn searchRoot(self: *Search, ctrl: anytype, alpha: Score, beta: Score, depth: i3
     return self.searchBody(.pv, ctrl, cache_entry, alpha, beta, ply, depth);
 }
 
-fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move: Move, alpha: Score, beta: Score, ply: i32, depth: i32) Abort!Score {
+fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move: Move, initial_alpha: Score, initial_beta: Score, ply: i32, depth: i32) Abort!Score {
+    var alpha = initial_alpha;
+    var beta = initial_beta;
     if (depth <= 0) return self.qsearch(expected, ctrl, parent_move, alpha, beta, ply);
 
     const parent_position: *const Position = &self.ss(ply - 1).position;
@@ -271,6 +273,13 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
     if (ctrl.checkHardTermination(self) or self.stopping.load(.monotonic)) {
         for (self.searches) |*se| se.stopping.store(true, .monotonic);
         return Abort.Abort;
+    }
+
+    // Mate distance pruning
+    {
+        alpha = @max(alpha, score.matedIn(ply));
+        beta = @min(beta, score.matingIn(ply + 1));
+        if (alpha >= beta) return alpha;
     }
 
     self.hash_stack.push(self.hash_stack.back().move(parent_position, parent_move));
@@ -336,9 +345,11 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
 fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, cache_entry: ?Cache.Result, initial_alpha: Score, beta: Score, ply: i32, depth: i32) Abort!Score {
     var alpha = initial_alpha;
 
+    const position: *const Position = &self.ss(ply).position;
+
     const hint_move: Move = if (cache_entry) |lr| lr.move else .none;
 
-    var moves: MoveSelector = .new(self, &self.ss(ply).position, hint_move);
+    var moves: MoveSelector = .new(self, position, hint_move);
 
     var fail_low_quiets: MoveList = .new();
 
@@ -389,7 +400,7 @@ fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, cache_e
     }
 
     if (best_move.isSome()) {
-        const stm = self.ss(ply).position.sideToMove();
+        const stm = position.sideToMove();
 
         const quiet_bonus = 150 * depth - 75;
         const quiet_malus = 75 * depth - 30;
