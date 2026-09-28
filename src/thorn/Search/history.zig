@@ -5,13 +5,37 @@ pub const Quiet = struct {
         self.table = @splat(@splat(@splat(0)));
     }
 
-    pub fn get(self: *const Quiet, stm: Color, mv: Move) i32 {
-        return self.table[stm.toIndex()][mv.from().toIndex()][mv.to().toIndex()];
+    pub fn get(self: *const Quiet, stm: Color, m: Move) i32 {
+        return self.table[stm.toIndex()][m.from().toIndex()][m.to().toIndex()];
     }
 
-    pub fn update(self: *Quiet, stm: Color, mv: Move, bonus: i32) void {
-        gravity(&self.table[stm.toIndex()][mv.from().toIndex()][mv.to().toIndex()], bonus, 8192);
+    pub fn update(self: *Quiet, stm: Color, m: Move, bonus: i32) void {
+        gravity(&self.table[stm.toIndex()][m.from().toIndex()][m.to().toIndex()], bonus, 8192);
     }
+};
+
+pub const Continuation = struct {
+    table: [2][6][64]Subtable,
+
+    pub fn reset(self: *Continuation) void {
+        self.table = @splat(@splat(@splat(.{})));
+    }
+
+    pub fn getSubtable(self: *Continuation, stm: Color, ptype: PieceType, m: Move) *Subtable {
+        return &self.table[stm.toIndex()][ptype.toIndex()][m.to().toIndex()];
+    }
+
+    pub const Subtable = struct {
+        table: [2][6][64]i16 = @splat(@splat(@splat(0))),
+
+        pub fn get(self: *const Subtable, stm: Color, ptype: PieceType, m: Move) i32 {
+            return self.table[stm.toIndex()][ptype.toIndex()][m.to().toIndex()];
+        }
+
+        pub fn update(self: *Subtable, stm: Color, ptype: PieceType, m: Move, bonus: i32) void {
+            gravity(&self.table[stm.toIndex()][ptype.toIndex()][m.to().toIndex()], bonus, 8192);
+        }
+    };
 };
 
 fn gravity(value: *i16, bonus: i32, max: i16) void {
@@ -24,3 +48,4 @@ const std = @import("std");
 const thorn = @import("../../thorn.zig");
 const Color = thorn.Color;
 const Move = thorn.Move;
+const PieceType = thorn.PieceType;

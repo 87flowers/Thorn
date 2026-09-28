@@ -27,6 +27,7 @@ eval: Eval,
 
 nmr_ply: ?i32,
 quiet_history: history.Quiet,
+continuation_history: history.Continuation,
 
 pub const max_depth = 240;
 
@@ -270,7 +271,6 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
     const parent_position: *const Position = &self.ss(ply - 1).position;
 
     self.ss(ply).pv.clear();
-    self.ss(ply + 1).killer = .none;
 
     _ = self.nodes.rmw(.Add, 1, .monotonic);
     if (ctrl.checkHardTermination(self) or self.stopping.load(.monotonic)) {
@@ -304,6 +304,7 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
 
     if (ply >= max_depth) return static_eval;
 
+    self.ss(ply - 1).conthist = self.continuation_history.getSubtable(parent_position.sideToMove(), parent_position.ptypeAt(parent_move.from()), parent_move);
     self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
     const position: *const Position = &self.ss(ply).position;
 
@@ -394,15 +395,28 @@ fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, cache_e
     }
 
     if (best_move.isSome()) {
-        const stm = self.ss(ply).position.sideToMove();
+        const position: *const Position = &self.ss(ply).position;
+        const stm = position.sideToMove();
 
         const quiet_bonus = 150 * depth - 75;
         const quiet_malus = 75 * depth - 30;
+        const cont_bonus = 150 * depth - 75;
+        const cont_malus = 75 * depth - 30;
+
+        const conthist1 = self.ss(ply - 1).conthist;
 
         if (best_move.isQuiet()) {
-            self.ss(ply).killer = best_move;
-            self.quiet_history.update(stm, best_move, quiet_bonus);
-            for (fail_low_quiets.constSlice()) |m| self.quiet_history.update(stm, m, -quiet_malus);
+            {
+                const ptype = position.ptypeAt(best_move.from());
+                self.quiet_history.update(stm, best_move, quiet_bonus);
+                if (conthist1) |h| h.update(stm, ptype, best_move, cont_bonus);
+            }
+
+            for (fail_low_quiets.constSlice()) |m| {
+                const ptype = position.ptypeAt(m.from());
+                self.quiet_history.update(stm, m, -quiet_malus);
+                if (conthist1) |h| h.update(stm, ptype, m, -cont_malus);
+            }
         }
     }
 

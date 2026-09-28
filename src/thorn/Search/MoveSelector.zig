@@ -2,7 +2,6 @@ stage: enum {
     hint_move,
     movegen_noisy,
     emit_noisy,
-    killer_move,
     movegen_quiet,
     emit_quiet,
     end,
@@ -14,7 +13,6 @@ current: usize = 0,
 search: *Search,
 ply: i32,
 hint_move: Move,
-killer_move: Move,
 
 skip_quiet: bool = false,
 
@@ -23,7 +21,6 @@ pub fn new(search: *Search, ply: i32, hint_move: Move) MoveSelector {
         .search = search,
         .ply = ply,
         .hint_move = hint_move,
-        .killer_move = search.ss(ply).killer,
     };
 }
 
@@ -32,7 +29,6 @@ pub fn skipQuiet(self: *MoveSelector) void {
         .hint_move => .hint_move,
         .movegen_noisy => .movegen_noisy,
         .emit_noisy => .emit_noisy,
-        .killer_move => .end,
         .movegen_quiet => .end,
         .emit_quiet => .end,
         .end => .end,
@@ -67,15 +63,6 @@ pub fn next(self: *MoveSelector) ?Move {
                 if (m == self.hint_move) continue;
                 return m;
             }
-            continue :sw .killer_move;
-        },
-        .killer_move => {
-            if (self.skip_quiet) continue :sw .end;
-
-            if (self.killer_move.isSome() and position.isLegal(self.killer_move)) {
-                self.stage = .movegen_quiet;
-                return self.killer_move;
-            }
             continue :sw .movegen_quiet;
         },
         .movegen_quiet => {
@@ -94,7 +81,6 @@ pub fn next(self: *MoveSelector) ?Move {
                 const m = self.moves.storage[self.current];
                 self.current += 1;
                 if (m == self.hint_move) continue;
-                if (m == self.killer_move) continue;
                 return m;
             }
             continue :sw .end;
@@ -128,9 +114,16 @@ fn orderQuietMoves(self: *MoveSelector) void {
 
     const stm = position.sideToMove();
 
+    const conthist1 = self.search.ss(self.ply - 1).conthist;
+
     for (0..self.moves.len) |i| {
         const m = self.moves.storage[i];
-        scores[i] = self.search.quiet_history.get(stm, m);
+        const ptype = position.ptypeAt(m.from());
+
+        var score: i32 = 0;
+        score += self.search.quiet_history.get(stm, m);
+        if (conthist1) |h| score += h.get(stm, ptype, m);
+        scores[i] = score;
     }
 
     self.sort(&scores);
