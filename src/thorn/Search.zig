@@ -354,7 +354,7 @@ fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, cache_e
         var s: Score = undefined;
         if (depth >= 3 and searched_moves >= 3) {
             const reduction = 2048 + 256 * log2i(depth) * log2i(searched_moves);
-            const lmr_depth = std.math.clamp(depth - @divTrunc(reduction, 1024), 1, depth - 1);
+            const lmr_depth = @min(@max(depth - @divTrunc(reduction, 1024), 1), depth - 1);
             s = -try self.search(expected.next(), ctrl, m, -alpha - 1, -alpha, ply + 1, lmr_depth);
             if (s > alpha and lmr_depth < depth - 1)
                 s = -try self.search(expected.next(), ctrl, m, -alpha - 1, -alpha, ply + 1, depth - 1);
