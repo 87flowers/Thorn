@@ -336,9 +336,12 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
 fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, cache_entry: ?Cache.Result, initial_alpha: Score, beta: Score, ply: i32, depth: i32) Abort!Score {
     var alpha = initial_alpha;
 
+    const position: *const Position = &self.ss(ply).position;
+    const is_in_check = position.checkers().isNonEmpty();
+
     const hint_move: Move = if (cache_entry) |lr| lr.move else .none;
 
-    var moves: MoveSelector = .new(self, &self.ss(ply).position, hint_move);
+    var moves: MoveSelector = .new(self, position, hint_move);
 
     var fail_low_quiets: MoveList = .new();
 
@@ -348,6 +351,11 @@ fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, cache_e
     var actual_kind: NodeKind = .all;
     while (moves.next()) |m| {
         searched_moves += 1;
+
+        if (!is_in_check and !score.isTheoretical(beta)) {
+            if (m.isQuiet() and searched_moves >= @divFloor(4096 + 1024 * depth + 512 * depth * depth, 1024))
+                break;
+        }
 
         self.ss(ply).move = m;
 
@@ -389,7 +397,7 @@ fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, cache_e
     }
 
     if (best_move.isSome()) {
-        const stm = self.ss(ply).position.sideToMove();
+        const stm = position.sideToMove();
 
         const quiet_bonus = 150 * depth - 75;
         const quiet_malus = 75 * depth - 30;
