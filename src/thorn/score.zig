@@ -17,7 +17,7 @@ pub fn matedIn(ply: i32) Score {
 
 pub fn matingIn(ply: i32) Score {
     assert(ply >= 0);
-    return @min(max_score - ply, max_normal_score);
+    return @max(max_score - ply, max_normal_score);
 }
 
 pub fn isTheoretical(s: Score) bool {
