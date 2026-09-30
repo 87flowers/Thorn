@@ -4,7 +4,7 @@ hash_stack: StaticVec(Hash, 100),
 pub const startpos: Game = blk: {
     var result: Game = .{
         .position = .startpos,
-        .hash_stack = .new(),
+        .hash_stack = .{},
     };
     result.hash_stack.push(.fromPosition(&Position.startpos));
     break :blk result;

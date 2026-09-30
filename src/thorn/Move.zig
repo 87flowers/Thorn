@@ -109,7 +109,7 @@ pub const Move = packed struct {
     }
 
     pub fn toString(self: Move, format: MoveFormat) StaticVec(u8, 5) {
-        var result: StaticVec(u8, 5) = .new();
+        var result: StaticVec(u8, 5) = .{};
 
         result.push(self.from().file().toChar());
         result.push(self.from().rank().toChar());

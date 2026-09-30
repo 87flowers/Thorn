@@ -1,4 +1,4 @@
-stack: StaticVec(Stack, Search.max_depth + 3) = .new(),
+stack: StaticVec(Stack, Search.max_depth + 3) = .{},
 
 pub fn reset(self: *Eval, position: *const Position) void {
     self.stack.clear();

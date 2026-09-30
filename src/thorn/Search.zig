@@ -253,6 +253,8 @@ fn emergencyMove(self: *Search, pv: *Line) Score {
 }
 
 fn searchRoot(self: *Search, ctrl: anytype, alpha: Score, beta: Score, depth: i32) Abort!Score {
+    assert(depth >= 0);
+
     const ply = 0;
 
     _ = self.nodes.rmw(.Add, 1, .monotonic);
@@ -372,15 +374,16 @@ fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, cache_e
             best_score = s;
 
             if (s > alpha) {
-                if (expected == .pv) self.ss(ply).pv.writeLine(m, &self.ss(ply + 1).pv);
+                actual_kind = .pv;
                 alpha = s;
                 best_move = m;
-                actual_kind = .pv;
-            }
 
-            if (s >= beta) {
-                actual_kind = .cut;
-                break;
+                if (expected == .pv) self.ss(ply).pv.writeLine(m, &self.ss(ply + 1).pv);
+
+                if (s >= beta) {
+                    actual_kind = .cut;
+                    break;
+                }
             }
         }
 
@@ -413,7 +416,9 @@ fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, cache_e
     return best_score;
 }
 
-fn qsearch(self: *Search, comptime leaf_expected: NodeKind, ctrl: anytype, parent_move: Move, alpha: Score, beta: Score, ply: i32) Abort!Score {
+fn qsearch(self: *Search, comptime leaf_expected: NodeKind, ctrl: anytype, parent_move: Move, initial_alpha: Score, beta: Score, ply: i32) Abort!Score {
+    var alpha = initial_alpha;
+
     const parent_position: *const Position = &self.ss(ply - 1).position;
 
     self.ss(ply).pv.clear();
@@ -430,29 +435,33 @@ fn qsearch(self: *Search, comptime leaf_expected: NodeKind, ctrl: anytype, paren
     self.eval.push(parent_position, parent_move);
     defer self.eval.pop();
 
-    // Standpat (Part 1)
-    const static_eval = self.eval.evaluation();
-    if (static_eval >= beta) return static_eval;
+    if (ply >= max_depth) return self.eval.evaluation();
 
     self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
 
-    return self.qsearchBody(leaf_expected, ctrl, alpha, beta, ply);
+    // Standpat
+    const best_score = self.eval.evaluation();
+    if (best_score >= beta) return best_score;
+    alpha = @max(alpha, best_score);
+
+    return self.qsearchBody(leaf_expected, ctrl, best_score, alpha, beta, ply);
 }
 
-fn qsearchBody(self: *Search, comptime leaf_expected: NodeKind, ctrl: anytype, initial_alpha: Score, beta: Score, ply: i32) Abort!Score {
+fn qsearchBody(self: *Search, comptime leaf_expected: NodeKind, ctrl: anytype, initial_best_score: Score, initial_alpha: Score, beta: Score, ply: i32) Abort!Score {
+    var best_score = initial_best_score;
     var alpha = initial_alpha;
 
-    var moves: MoveSelector = .new(self, &self.ss(ply).position, .none);
+    const position: *const Position = &self.ss(ply).position;
+
+    var moves: MoveSelector = .new(self, position, .none);
     moves.skipQuiet();
 
     var searched_moves: usize = 0;
-    var best_score: Score = self.eval.evaluation();
-
-    // Standpat (Part 2)
-    alpha = @max(alpha, best_score);
 
     while (moves.next()) |m| {
         searched_moves += 1;
+
+        self.ss(ply).move = m;
 
         const s = -try self.qsearch(leaf_expected, ctrl, m, -beta, -alpha, ply + 1);
 
@@ -460,11 +469,12 @@ fn qsearchBody(self: *Search, comptime leaf_expected: NodeKind, ctrl: anytype, i
             best_score = s;
 
             if (s > alpha) {
-                if (leaf_expected == .pv) self.ss(ply).pv.writeLine(m, &self.ss(ply + 1).pv);
                 alpha = s;
-            }
 
-            if (s >= beta) break;
+                if (leaf_expected == .pv) self.ss(ply).pv.writeLine(m, &self.ss(ply + 1).pv);
+
+                if (s >= beta) break;
+            }
         }
     }
 
@@ -502,6 +512,7 @@ const Abort = error{Abort};
 
 const Search = @This();
 const std = @import("std");
+const assert = std.debug.assert;
 const thorn = @import("../thorn.zig");
 const score = thorn.score;
 const Broadcast = thorn.util.Broadcast;

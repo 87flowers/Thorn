@@ -1,14 +1,7 @@
 pub fn StaticVec(comptime T: type, comptime capacity: usize) type {
     return struct {
-        len: usize,
-        storage: [capacity]T,
-
-        pub fn new() Self {
-            return .{
-                .storage = undefined,
-                .len = 0,
-            };
-        }
+        len: usize = 0,
+        storage: [capacity]T = undefined,
 
         pub fn copyFrom(self: *Self, from: *const Self) void {
             self.len = from.len;
