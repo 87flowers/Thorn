@@ -118,7 +118,8 @@ pub fn push(self: *Eval, parent_position: *const Position, m: Move) void {
 
     const psqt = self.stack.back().psqt + if (stm == .white) psqt_delta else -psqt_delta;
     const phase = self.stack.back().phase + phase_delta;
-    var value = @divFloor(psqt[0] * phase + psqt[1] * (24 - phase), 24);
+    const p = @min(phase, 24);
+    var value = @divFloor(psqt[0] * p + psqt[1] * (24 - p), 24);
     if (parent_position.sideToMove() == .white) value = -value;
     self.stack.push(.{
         .psqt = psqt,
@@ -130,7 +131,8 @@ pub fn push(self: *Eval, parent_position: *const Position, m: Move) void {
 pub fn pushNull(self: *Eval, parent_position: *const Position) void {
     const psqt = self.stack.back().psqt;
     const phase = self.stack.back().phase;
-    var value = @divFloor(psqt[0] * phase + psqt[1] * (24 - phase), 24);
+    const p = @min(phase, 24);
+    var value = @divFloor(psqt[0] * p + psqt[1] * (24 - p), 24);
     if (parent_position.sideToMove() == .white) value = -value;
     self.stack.push(.{
         .psqt = psqt,
@@ -165,7 +167,8 @@ fn rebuild(position: *const Position) Stack {
         };
         phase += phase_table[pt];
     }
-    var value = @divFloor(psqt[0] * phase + psqt[1] * (24 - phase), 24);
+    const p = @min(phase, 24);
+    var value = @divFloor(psqt[0] * p + psqt[1] * (24 - p), 24);
     if (position.sideToMove() == .black) value = -value;
     return .{
         .psqt = psqt,
