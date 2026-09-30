@@ -37,8 +37,15 @@ pub fn lookup(self: *Cache, h: Hash, ply: i32) ?Result {
     return if (entry.fragment() == fragment) entry.toResult(ply) else null;
 }
 
-pub fn update(self: *Cache, h: Hash, ply: i32, lr: Result) void {
+pub fn update(self: *Cache, h: Hash, ply: i32, initial_lr: Result) void {
     const index = self.hashToIndex(h);
+    const fragment: Fragment = .fromHash(h);
+
+    var lr = initial_lr;
+    if (lr.move.isNone()) {
+        const entry = @atomicLoad(Entry, &self.entries[index], .monotonic);
+        if (entry.fragment() == fragment) lr.move = entry.move();
+    }
 
     @atomicStore(Entry, &self.entries[index], .make(h, ply, lr), .monotonic);
 }
