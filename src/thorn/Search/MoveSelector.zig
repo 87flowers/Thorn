@@ -72,7 +72,10 @@ pub fn next(self: *MoveSelector) ?Move {
         .killer_move => {
             if (self.skip_quiet) continue :sw .end;
 
-            if (self.killer_move.isSome() and position.isLegal(self.killer_move)) {
+            if (self.killer_move != self.hint_move and
+                self.killer_move.isSome() and
+                position.isLegal(self.killer_move))
+            {
                 self.stage = .movegen_quiet;
                 return self.killer_move;
             }
