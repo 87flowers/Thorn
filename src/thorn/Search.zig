@@ -439,8 +439,11 @@ fn qsearch(self: *Search, comptime leaf_expected: NodeKind, ctrl: anytype, paren
 
     self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
 
+    const position: *const Position = &self.ss(ply).position;
+    const is_in_check = position.checkers().isNonEmpty();
+
     // Standpat
-    const best_score = self.eval.evaluation();
+    const best_score = if (is_in_check) score.matedIn(ply) else self.eval.evaluation();
     if (best_score >= beta) return best_score;
     alpha = @max(alpha, best_score);
 
@@ -452,9 +455,10 @@ fn qsearchBody(self: *Search, comptime leaf_expected: NodeKind, ctrl: anytype, i
     var alpha = initial_alpha;
 
     const position: *const Position = &self.ss(ply).position;
+    const is_in_check = position.checkers().isNonEmpty();
 
     var moves: MoveSelector = .new(self, position, .none);
-    moves.skipQuiet();
+    if (!is_in_check) moves.skipQuiet();
 
     var searched_moves: usize = 0;
 
@@ -476,6 +480,8 @@ fn qsearchBody(self: *Search, comptime leaf_expected: NodeKind, ctrl: anytype, i
                 if (s >= beta) break;
             }
         }
+
+        if (is_in_check and !score.isLoss(best_score)) moves.skipQuiet();
     }
 
     return best_score;
