@@ -20,8 +20,16 @@ pub fn matingIn(ply: i32) Score {
     return @max(max_score - ply, max_normal_score);
 }
 
+pub fn isLoss(s: Score) bool {
+    return s < min_normal_score;
+}
+
+pub fn isWin(s: Score) bool {
+    return s > max_normal_score;
+}
+
 pub fn isTheoretical(s: Score) bool {
-    return s < min_normal_score or s > max_normal_score;
+    return isLoss(s) or isWin(s);
 }
 
 pub fn distanceToMate(s: Score) ?i32 {
