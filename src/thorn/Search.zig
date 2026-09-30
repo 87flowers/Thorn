@@ -424,6 +424,16 @@ fn qsearch(self: *Search, comptime leaf_expected: NodeKind, ctrl: anytype, paren
     self.hash_stack.push(self.hash_stack.back().move(parent_position, parent_move));
     defer self.hash_stack.pop();
 
+    const cache_entry = self.cache.lookup(self.hash_stack.back(), ply);
+    if (cache_entry) |lr| if (leaf_expected != .pv and switch (lr.kind) {
+        .none => false,
+        .cut => lr.score >= beta,
+        .pv => true,
+        .all => lr.score <= alpha,
+    }) {
+        return lr.score;
+    };
+
     self.eval.push(parent_position, parent_move);
     defer self.eval.pop();
 
