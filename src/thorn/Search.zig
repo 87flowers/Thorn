@@ -13,7 +13,8 @@ thread: std.Thread,
 output_mode: Engine.OutputMode,
 move_format: MoveFormat,
 
-stopping: std.atomic.Value(bool),
+stopping_generation: u64,
+stopping: std.atomic.Value(u64),
 nodes: std.atomic.Value(u64),
 
 search_start: std.Io.Timestamp,
@@ -48,6 +49,8 @@ pub fn launch(
     self.index = index;
     self.output_mode = output_mode;
     self.move_format = move_format;
+    self.stopping_generation = 0;
+    self.stopping.store(0, .monotonic);
     self.newGame();
     self.thread = try std.Thread.spawn(.{}, threadMain, .{self});
 }
@@ -81,7 +84,7 @@ fn threadMain(self: *Search) !void {
                 @memcpy(self.hash_stack.storage[0..self.hash_stack.len], m.game.hash_stack.storage[0..self.hash_stack.len]);
 
                 self.nodes.store(0, .monotonic);
-                self.stopping.store(false, .monotonic);
+                self.stopping_generation +%= 1;
 
                 if (self.index == 0) {
                     switch (control.Has{
@@ -182,7 +185,7 @@ fn go(self: *Search, out: ?*std.Io.Writer, ctrl: anytype) !void {
             delta += delta;
         }
 
-        if (self.stopping.load(.monotonic)) break;
+        if (self.stopping.load(.monotonic) == self.stopping_generation) break;
 
         last_pv.copyFrom(&self.ss(0).pv);
         last_score = s;
@@ -205,7 +208,7 @@ fn go(self: *Search, out: ?*std.Io.Writer, ctrl: anytype) !void {
         .none => {},
     }
 
-    for (self.searches) |*se| se.stopping.store(true, .monotonic);
+    for (self.searches) |*se| se.stopping.store(self.stopping_generation, .monotonic);
 }
 
 fn printInfoLine(self: *Search, out: ?*std.Io.Writer, depth: i32, s: Score, pv: *const Line) !void {
@@ -268,8 +271,8 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
     self.ss(ply).pv.clear();
 
     _ = self.nodes.rmw(.Add, 1, .monotonic);
-    if (ctrl.checkHardTermination(self) or self.stopping.load(.monotonic)) {
-        for (self.searches) |*se| se.stopping.store(true, .monotonic);
+    if (ctrl.checkHardTermination(self) or self.stopping.load(.monotonic) == self.stopping_generation) {
+        for (self.searches) |*se| se.stopping.store(self.stopping_generation, .monotonic);
         return Abort.Abort;
     }
 
@@ -416,8 +419,8 @@ fn qsearch(self: *Search, comptime leaf_expected: NodeKind, ctrl: anytype, paren
     self.ss(ply).pv.clear();
 
     _ = self.nodes.rmw(.Add, 1, .monotonic);
-    if (ctrl.checkHardTermination(self) or self.stopping.load(.monotonic)) {
-        for (self.searches) |*se| se.stopping.store(true, .monotonic);
+    if (ctrl.checkHardTermination(self) or self.stopping.load(.monotonic) == self.stopping_generation) {
+        for (self.searches) |*se| se.stopping.store(self.stopping_generation, .monotonic);
         return Abort.Abort;
     }
 

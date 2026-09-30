@@ -45,7 +45,7 @@ pub fn go(self: *Engine, io: std.Io, game: *Game, search_start: std.Io.Timestamp
 }
 
 pub fn stop(self: *Engine, io: std.Io) void {
-    for (self.searches) |*se| se.stopping.store(true, .monotonic);
+    for (self.searches) |*se| se.stopping.store(self.searches[0].stopping_generation, .monotonic);
     self.wait(io);
 }
 
