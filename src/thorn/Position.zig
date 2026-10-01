@@ -144,16 +144,20 @@ pub fn isDirectCheck(self: *const Position, m: Move) bool {
 }
 
 pub fn isDiscoveredCheck(self: *const Position, m: Move) bool {
-    return self.isDiscoveredCheckHelper(m.from(), m.to()) or
-        (m.isEnpassant() and self.isDiscoveredCheckHelper(self.enpassant.toggleRankLsb(), m.to()));
+    if (m.isEnpassant()) {
+        const victim = self.enpassant.toggleRankLsb();
+        const occ = self.occupiedSet().bitAndNot(.set(.{ m.from(), victim }));
+        return self.isDiscoveredCheckHelper(m.from(), m, occ) or self.isDiscoveredCheckHelper(victim, m, occ);
+    }
+    return self.isDiscoveredCheckHelper(m.from(), m, self.occupiedSet());
 }
 
-fn isDiscoveredCheckHelper(self: *const Position, removed_sq: Square, to: Square) bool {
+fn isDiscoveredCheckHelper(self: *const Position, removed_sq: Square, m: Move, occ: SquareSet) bool {
     const stm = self.sideToMove();
     const king_sq = self.kingSq(stm.invert());
-    if (SquareSet.rayBetween(king_sq, removed_sq).bitAnd(self.occupiedSet()).isNonEmpty()) return false;
+    if (SquareSet.rayBetween(king_sq, removed_sq).bitAnd(occ).isNonEmpty()) return false;
     const ray: SquareSet = .rayPast(king_sq, removed_sq);
-    if (ray.read(to)) return false;
+    if (ray.read(m.to())) return false;
     const sliders = self.whichAreSlider(stm);
     const potential = self.whichAttackTo(stm, removed_sq.toSet());
     var iter = sliders.bitAnd(potential).iter();
@@ -906,7 +910,6 @@ test "isLegal perft" {
 
 test "inCheck" {
     const cases = [_]struct { []const u8, []const u8 }{
-        .{ "r1q1k2r/pb1nb1p1/1p2p3/5p1p/P1PNP1n1/6P1/1BQN1PBP/4RRK1 w kq - 0 4", "e4f5" },
         .{ "r1bq1b1r/ppp2kpp/8/4P3/2pnP3/8/PPP3PP/RNBQK2R w KQ - 0 6", "e1h1" },
         .{ "rnbk1b1r/pp3ppp/5p2/8/4P3/2p2N2/PP3PPP/R3KB1R w KQ - 0 6", "e1a1" },
         .{ "r5k1/pp1P1r1p/1nq3p1/4P1B1/4nQ2/5P2/PP2K2P/8 w - - 0 4", "d7d8q" },
@@ -918,12 +921,32 @@ test "inCheck" {
         .{ "6k1/p6p/1pq2br1/2Pp1p2/2Q5/P4nP1/3P2KP/4R2R w - d6 0 8", "c5d6" },
         .{ "rnbq2kr/pp4pp/5n2/2pP4/1bBP4/2N5/PPP2PPP/R1BQK2R w KQ c6 0 5", "d5c6" },
         .{ "r3kbnr/1b4pp/p1n5/qpp1Pp2/3p1N2/1B3N2/PP2QPPP/R1BR2K1 w kq f6 0 3", "e5f6" },
+        .{ "r4bnr/1bq3pp/p1n5/Q3Pp1k/1p1p4/1Bp5/PP3PPP/R1BR1NKN w - f6 0 3", "e5f6" },
+        .{ "8/8/8/R2Pp2k/8/8/8/4K3 w - e6 0 1", "d5e6" },
     };
     for (cases) |case| {
         const position = try Position.parse(case[0]);
-        const m = try Move.parse(case[1], position);
-        try std.testing.expectEqual(true, position.isLegal(m));
+        const m = try Move.parse(case[1], &position);
+        try std.testing.expectEqual(true, position.isCheck(m));
     }
+}
+
+test "!inCheck" {
+    const position = try Position.parse("r1q1k2r/pb1nb1p1/1p2p3/5p1p/P1PNP1n1/6P1/1BQN1PBP/4RRK1 w kq - 0 4");
+    const m = try Move.parse("e4f5", &position);
+    try std.testing.expectEqual(false, position.isCheck(m));
+}
+
+test "isDirectCheck" {
+    const position = try Position.parse("8/8/8/R2Pp2k/8/8/8/4K3 w - e6 0 1");
+    const m = try Move.parse("d5e6", &position);
+    try std.testing.expectEqual(false, position.isDirectCheck(m));
+}
+
+test "isDiscoveredCheck" {
+    const position = try Position.parse("8/8/8/R2Pp2k/8/8/8/4K3 w - e6 0 1");
+    const m = try Move.parse("d5e6", &position);
+    try std.testing.expectEqual(true, position.isDiscoveredCheck(m));
 }
 
 const Position = @This();
