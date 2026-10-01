@@ -55,6 +55,10 @@ pub fn launch(
     self.thread = try std.Thread.spawn(.{}, threadMain, .{self});
 }
 
+pub fn ss(self: *Search, ply: i32) *Stack {
+    return &self.stack[@intCast(ply + stack_offset)];
+}
+
 fn threadMain(self: *Search) !void {
     while (true) {
         const msg = self.channel.wait(self.io);
@@ -247,7 +251,7 @@ fn emergencyMove(self: *Search, pv: *Line) Score {
     };
 
     // Overwise, rely on our move ordering
-    var moves: MoveSelector = .new(self, &self.root_position, .none);
+    var moves: MoveSelector = .new(self, 0, .none);
     pv.writeLine(moves.next() orelse .none, &.{});
     return 0;
 }
@@ -271,6 +275,7 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
     const parent_position: *const Position = &self.ss(ply - 1).position;
 
     self.ss(ply).pv.clear();
+    self.ss(ply + 1).killer = .none;
 
     _ = self.nodes.rmw(.Add, 1, .monotonic);
     if (ctrl.checkHardTermination(self) or self.stopping.load(.monotonic) == self.stopping_generation) {
@@ -343,7 +348,7 @@ fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, cache_e
 
     const hint_move: Move = if (cache_entry) |lr| lr.move else .none;
 
-    var moves: MoveSelector = .new(self, &self.ss(ply).position, hint_move);
+    var moves: MoveSelector = .new(self, ply, hint_move);
 
     var fail_low_quiets: MoveList = .new();
 
@@ -401,6 +406,7 @@ fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, cache_e
         const quiet_malus = 75 * depth - 30;
 
         if (best_move.isQuiet()) {
+            self.ss(ply).killer = best_move;
             self.quiet_history.update(stm, best_move, quiet_bonus);
             for (fail_low_quiets.constSlice()) |m| self.quiet_history.update(stm, m, -quiet_malus);
         }
@@ -457,7 +463,7 @@ fn qsearchBody(self: *Search, comptime leaf_expected: NodeKind, ctrl: anytype, i
     const position: *const Position = &self.ss(ply).position;
     const is_in_check = position.checkers().isNonEmpty();
 
-    var moves: MoveSelector = .new(self, position, .none);
+    var moves: MoveSelector = .new(self, ply, .none);
     if (!is_in_check) moves.skipQuiet();
 
     var searched_moves: usize = 0;
@@ -502,10 +508,6 @@ fn isThreeFoldDraw(self: *Search, end: usize) bool {
         }
     }
     return false;
-}
-
-fn ss(self: *Search, ply: i32) *Stack {
-    return &self.stack[@intCast(ply + stack_offset)];
 }
 
 fn log2i(x: anytype) i32 {
