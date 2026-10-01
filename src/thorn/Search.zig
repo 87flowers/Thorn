@@ -443,15 +443,14 @@ fn qsearch(self: *Search, comptime leaf_expected: NodeKind, ctrl: anytype, paren
 
     if (ply >= max_depth) return self.eval.evaluation();
 
-    self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
-
-    const position: *const Position = &self.ss(ply).position;
-    const is_in_check = position.checkers().isNonEmpty();
+    const is_in_check = parent_position.isCheck(parent_move);
 
     // Standpat
     const best_score = if (is_in_check) score.matedIn(ply) else self.eval.evaluation();
     if (best_score >= beta) return best_score;
     alpha = @max(alpha, best_score);
+
+    self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
 
     return self.qsearchBody(leaf_expected, ctrl, best_score, alpha, beta, ply);
 }

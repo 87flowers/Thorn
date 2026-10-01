@@ -39,6 +39,10 @@ pub fn pawn(sq: Square, color: Color) SquareSet {
     return pawn_table[color.toIndex()][sq.toIndex()];
 }
 
+pub fn mayAttack(color: Color, pt: PieceType, attacker: Square, victim: Square) bool {
+    return may_attack_table[victim.toIndex()][color.toIndex()][attacker.toIndex()] & @intFromEnum(pt) != 0;
+}
+
 pub fn bishopHq(occ: SquareSet, sq: Square) SquareSet {
     assert(sq.isSome());
     const m = hq_masks_table[sq.toIndex()];
@@ -55,7 +59,7 @@ pub fn bishopHq(occ: SquareSet, sq: Square) SquareSet {
     anti_forward ^= @byteSwap(anti_reverse);
     diag_forward &= m.diagonal;
     anti_forward &= m.antidiagonal;
-    return SquareSet.make(diag_forward | anti_forward);
+    return .make(diag_forward | anti_forward);
 }
 
 pub fn rookHq(occ: SquareSet, sq: Square) SquareSet {
@@ -74,7 +78,7 @@ pub fn rookHq(occ: SquareSet, sq: Square) SquareSet {
     r_forward ^= @bitReverse(r_reverse);
     f_forward &= m.file;
     r_forward &= m.rank;
-    return SquareSet.make(f_forward | r_forward);
+    return .make(f_forward | r_forward);
 }
 
 const hq_masks_table = blk: {
@@ -87,7 +91,7 @@ const hq_masks_table = blk: {
     };
     var result: [64]Masks = undefined;
     for (0..64) |i| {
-        const sq = Square.fromIndex(i);
+        const sq: Square = .fromIndex(i);
         result[i] = .{
             .diagonal = SquareSet.rayMask(sq, .ne).bitOr(SquareSet.rayMask(sq, .sw)).raw,
             .antidiagonal = SquareSet.rayMask(sq, .nw).bitOr(SquareSet.rayMask(sq, .se)).raw,
@@ -102,7 +106,7 @@ const pawn_table = blk: {
     @setEvalBranchQuota(100_000);
     var result: [2][64]SquareSet = undefined;
     for (0..64) |i| {
-        const sq = Square.fromIndex(i);
+        const sq: Square = .fromIndex(i);
         var bb = sq.toSet();
         result[0][i] = bb.shift(.ne).bitOr(bb.shift(.nw));
         result[1][i] = bb.shift(.se).bitOr(bb.shift(.sw));
@@ -114,7 +118,7 @@ const knight_table = blk: {
     @setEvalBranchQuota(100_000);
     var result: [64]SquareSet = undefined;
     for (0..64) |i| {
-        const sq = Square.fromIndex(i);
+        const sq: Square = .fromIndex(i);
         var bb = sq.toSet();
         result[i] = (bb.shift(.n).shift(.ne))
             .bitOr(bb.shift(.n).shift(.nw))
@@ -132,7 +136,7 @@ const king_table = blk: {
     @setEvalBranchQuota(100_000);
     var result: [64]SquareSet = undefined;
     for (0..64) |i| {
-        const sq = Square.fromIndex(i);
+        const sq: Square = .fromIndex(i);
         var bb = sq.toSet();
         result[i] = (bb.shift(.n))
             .bitOr(bb.shift(.ne))
@@ -142,6 +146,25 @@ const king_table = blk: {
             .bitOr(bb.shift(.sw))
             .bitOr(bb.shift(.w))
             .bitOr(bb.shift(.nw));
+    }
+    break :blk result;
+};
+
+const may_attack_table = blk: {
+    @setEvalBranchQuota(100_000);
+    var result: [64][2][64]u8 = @splat(@splat(@splat(0)));
+    for (0..64) |i| {
+        const victim: Square = .fromIndex(i);
+        for (0..2) |j| {
+            const color: Color = @enumFromInt(j);
+            for ([_]PieceType{ .p, .n, .b, .r, .q, .k }) |pt| {
+                const set = ptype(pt, .empty, victim, color.invert());
+                var iter = set.iter();
+                while (iter.next()) |sq| {
+                    result[i][j][sq.toIndex()] |= @intFromEnum(pt);
+                }
+            }
+        }
     }
     break :blk result;
 };

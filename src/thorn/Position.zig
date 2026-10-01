@@ -126,6 +126,39 @@ pub fn checkers(self: *const Position) PieceSet {
     return self.whichAttackTo(stm.invert(), self.kingSq(stm).toSet());
 }
 
+pub fn isCheck(self: *const Position, m: Move) bool {
+    return self.isDirectCheck(m) or self.isDiscoveredCheck(m);
+}
+
+pub fn isDirectCheck(self: *const Position, m: Move) bool {
+    const stm = self.sideToMove();
+    const king_sq = self.kingSq(stm.invert());
+    if (m.isCastle()) {
+        if (m.flags() == .castle_aside) return king_sq.file() == .d and SquareSet.rayBetween(king_sq, .fromFileAndRank(.d, stm.homeRank())).bitAnd(self.occupiedSet()).isEmpty();
+        if (m.flags() == .castle_hside) return king_sq.file() == .f and SquareSet.rayBetween(king_sq, .fromFileAndRank(.f, stm.homeRank())).bitAnd(self.occupiedSet()).isEmpty();
+        return false;
+    }
+    const ptype = if (m.isPromo()) m.promo() else self.ptypeAt(m.from());
+    return attacks.mayAttack(stm, ptype, m.to(), king_sq) and
+        SquareSet.rayBetween(king_sq, m.to()).bitAnd(self.occupiedSet().bitAndNot(m.from().toSet())).isEmpty();
+}
+
+pub fn isDiscoveredCheck(self: *const Position, m: Move) bool {
+    const stm = self.sideToMove();
+    const king_sq = self.kingSq(stm.invert());
+    if (SquareSet.rayBetween(king_sq, m.from()).bitAnd(self.occupiedSet()).isNonEmpty()) return false;
+    const ray: SquareSet = .rayPast(king_sq, m.from());
+    if (ray.read(m.to())) return false;
+    const sliders = self.whichAreSlider(stm);
+    const potential = self.whichAttackTo(stm, m.from().toSet());
+    var iter = sliders.bitAnd(potential).iter();
+    while (iter.next()) |id| {
+        const sq = self.whereIs(stm, id);
+        if (ray.read(sq)) return true;
+    }
+    return false;
+}
+
 pub fn isCastleLegal(self: *const Position, comptime side: Castling.Side) bool {
     assert(self.precalc);
     return self.checkers().isEmpty() and self.isCastleLegalAssumeNoCheck(side);
@@ -863,6 +896,25 @@ test "isLegal perft" {
             const result = perft(&position, depth);
             try std.testing.expectEqual(answer, result);
         }
+    }
+}
+
+test "inCheck" {
+    const cases = [_]struct { []const u8, []const u8 }{
+        .{ "r1q1k2r/pb1nb1p1/1p2p3/5p1p/P1PNP1n1/6P1/1BQN1PBP/4RRK1 w kq - 0 4", "e4f5" },
+        .{ "r1bq1b1r/ppp2kpp/8/4P3/2pnP3/8/PPP3PP/RNBQK2R w KQ - 0 6", "e1h1" },
+        .{ "rnbk1b1r/pp3ppp/5p2/8/4P3/2p2N2/PP3PPP/R3KB1R w KQ - 0 6", "e1a1" },
+        .{ "r5k1/pp1P1r1p/1nq3p1/4P1B1/4nQ2/5P2/PP2K2P/8 w - - 0 4", "d7d8q" },
+        .{ "r4k1r/1P3ppp/p2qb3/2p1p3/QPP1P1n1/P4N2/4KbPP/R1B2B1R w - - 1 5 ", "b7a8r" },
+        .{ "8/P4p1p/1k6/6p1/8/8/1PP5/3K4 w - - 1 5", "a7a8n" },
+        .{ "7k/8/5P1p/3K4/6P1/8/3p4/8 b - - 0 2", "d2d1q" },
+        .{ "8/P4ppp/8/8/8/k7/2P5/3K4 w - - 1 6", "a7a8r" },
+        .{ "4r3/1Q3P2/p3p1kP/3p4/6q1/1PB5/2P5/1K6 w - - 1 6", "f7e8b" },
+    };
+    for (cases) |case| {
+        const position = try Position.parse(case[0]);
+        const m = try Move.parse(case[1], position);
+        try std.testing.expectEqual(true, position.isLegal(m));
     }
 }
 
