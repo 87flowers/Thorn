@@ -314,9 +314,7 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
     if (expected != .pv and !is_in_check) {
         if (depth <= 7 and static_eval - 128 * depth >= beta) return static_eval;
 
-        if (self.ss(ply).hash != self.hash_stack.back())
-            self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
-        const position: *const Position = &self.ss(ply).position;
+        const position = self.materializePosition(ply, parent_move);
 
         if (depth >= 4 and self.ss(ply - 1).move.isSome() and static_eval >= beta) {
             const reduction = 4;
@@ -340,8 +338,7 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
             if (null_score >= beta) return null_score;
         }
     } else {
-        if (self.ss(ply).hash != self.hash_stack.back())
-            self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
+        _ = self.materializePosition(ply, parent_move);
     }
 
     return self.searchBody(expected, ctrl, cache_entry, alpha, beta, ply, depth);
@@ -454,8 +451,7 @@ fn qsearch(self: *Search, comptime leaf_expected: NodeKind, ctrl: anytype, paren
     if (best_score >= beta) return best_score;
     alpha = @max(alpha, best_score);
 
-    if (self.ss(ply).hash != self.hash_stack.back())
-        self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
+    _ = self.materializePosition(ply, parent_move);
 
     return self.qsearchBody(leaf_expected, ctrl, best_score, alpha, beta, ply);
 }
@@ -512,6 +508,14 @@ fn isThreeFoldDraw(self: *Search, end: usize) bool {
         }
     }
     return false;
+}
+
+fn materializePosition(self: *Search, ply: i32, parent_move: Move) *const Position {
+    const entry = self.ss(ply);
+    const hash = self.hash_stack.back();
+    if (entry.hash != hash)
+        self.ss(ply - 1).position.move(&entry.position, parent_move);
+    return &entry.position;
 }
 
 fn log2i(x: anytype) i32 {
