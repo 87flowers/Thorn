@@ -144,13 +144,18 @@ pub fn isDirectCheck(self: *const Position, m: Move) bool {
 }
 
 pub fn isDiscoveredCheck(self: *const Position, m: Move) bool {
+    return self.isDiscoveredCheckHelper(m.from(), m.to()) or
+        (m.isEnpassant() and self.isDiscoveredCheckHelper(self.enpassant.toggleRankLsb(), m.to()));
+}
+
+fn isDiscoveredCheckHelper(self: *const Position, removed_sq: Square, to: Square) bool {
     const stm = self.sideToMove();
     const king_sq = self.kingSq(stm.invert());
-    if (SquareSet.rayBetween(king_sq, m.from()).bitAnd(self.occupiedSet()).isNonEmpty()) return false;
-    const ray: SquareSet = .rayPast(king_sq, m.from());
-    if (ray.read(m.to())) return false;
+    if (SquareSet.rayBetween(king_sq, removed_sq).bitAnd(self.occupiedSet()).isNonEmpty()) return false;
+    const ray: SquareSet = .rayPast(king_sq, removed_sq);
+    if (ray.read(to)) return false;
     const sliders = self.whichAreSlider(stm);
-    const potential = self.whichAttackTo(stm, m.from().toSet());
+    const potential = self.whichAttackTo(stm, removed_sq.toSet());
     var iter = sliders.bitAnd(potential).iter();
     while (iter.next()) |id| {
         const sq = self.whereIs(stm, id);
@@ -910,6 +915,9 @@ test "inCheck" {
         .{ "7k/8/5P1p/3K4/6P1/8/3p4/8 b - - 0 2", "d2d1q" },
         .{ "8/P4ppp/8/8/8/k7/2P5/3K4 w - - 1 6", "a7a8r" },
         .{ "4r3/1Q3P2/p3p1kP/3p4/6q1/1PB5/2P5/1K6 w - - 1 6", "f7e8b" },
+        .{ "6k1/p6p/1pq2br1/2Pp1p2/2Q5/P4nP1/3P2KP/4R2R w - d6 0 8", "c5d6" },
+        .{ "rnbq2kr/pp4pp/5n2/2pP4/1bBP4/2N5/PPP2PPP/R1BQK2R w KQ c6 0 5", "d5c6" },
+        .{ "r3kbnr/1b4pp/p1n5/qpp1Pp2/3p1N2/1B3N2/PP2QPPP/R1BR2K1 w kq f6 0 3", "e5f6" },
     };
     for (cases) |case| {
         const position = try Position.parse(case[0]);
