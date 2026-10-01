@@ -309,13 +309,13 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
 
     if (ply >= max_depth) return static_eval;
 
-    self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
-    const position: *const Position = &self.ss(ply).position;
-
-    const is_in_check = position.checkers().isNonEmpty();
+    const is_in_check = parent_position.isCheck(parent_move);
 
     if (expected != .pv and !is_in_check) {
         if (depth <= 7 and static_eval - 128 * depth >= beta) return static_eval;
+
+        self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
+        const position: *const Position = &self.ss(ply).position;
 
         if (depth >= 4 and self.ss(ply - 1).move.isSome() and static_eval >= beta) {
             const reduction = 4;
@@ -338,6 +338,8 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
 
             if (null_score >= beta) return null_score;
         }
+    } else {
+        self.ss(ply - 1).position.move(&self.ss(ply).position, parent_move);
     }
 
     return self.searchBody(expected, ctrl, cache_entry, alpha, beta, ply, depth);
