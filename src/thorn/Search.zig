@@ -348,6 +348,7 @@ fn search(self: *Search, comptime expected: NodeKind, ctrl: anytype, parent_move
 fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, cache_entry: ?Cache.Result, initial_alpha: Score, beta: Score, ply: i32, depth: i32) Abort!Score {
     var alpha = initial_alpha;
 
+    const is_in_check = self.ss(ply).position.checkers().isNonEmpty();
     const hint_move: Move = if (cache_entry) |lr| lr.move else .none;
 
     var moves: MoveSelector = .new(self, ply, hint_move);
@@ -359,6 +360,13 @@ fn searchBody(self: *Search, comptime expected: NodeKind, ctrl: anytype, cache_e
     var best_move: Move = .none;
     var actual_kind: NodeKind = .all;
     while (moves.next()) |m| {
+        if (!score.isLoss(best_score) and !is_in_check) {
+            if (m.isQuiet() and searched_moves >= @divTrunc(4096 + 512 * depth + 1024 * depth * depth, 1024)) {
+                moves.skipQuiet();
+                continue;
+            }
+        }
+
         searched_moves += 1;
 
         self.ss(ply).move = m;
